@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compact School Timetable System</title>
+    <style>
+        :root {
+            --primary: #1e40af;
+            --primary-dark: #1e3a8a;
+            --secondary: #64748b;
+            --bg: #f8fafc;
+            --border: #cbd5e1;
+            --danger: #ef4444;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        aside {
+            width: 240px;
+            background: white;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            z-index: 10;
+        }
+
+        aside h1 { color: var(--primary); font-size: 1.1rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 8px; }
+
+        .nav-btn {
+            background: none; border: none;
+            width: 100%; text-align: left;
+            padding: 12px; margin-bottom: 5px;
+            cursor: pointer; border-radius: 6px;
+            font-weight: 600; color: var(--secondary);
+            font-size: 0.9rem;
+        }
+        .nav-btn:hover { background: #eff6ff; color: var(--primary); }
+        .nav-btn.active { background: var(--primary); color: white; }
+
+        /* --- MAIN CONTENT --- */
+        main { flex: 1; padding: 0; overflow-y: auto; position: relative; display: flex; flex-direction: column; }
+        
+        .view-section { display: none; height: 100%; }
+        .view-section.active { display: block; }
+
+        /* --- TOOLBAR --- */
+        .toolbar {
+            background: white;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .toolbar input {
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .toolbar input.school-input { font-weight: bold; width: 220px; border-color: var(--primary); }
+
+        .toolbar-actions { margin-left: auto; display: flex; gap: 8px; }
+
+        .btn {
+            padding: 6px 12px; border: none; border-radius: 4px;
+            cursor: pointer; font-weight: 600; font-size: 0.85rem;
+        }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-secondary { background: white; border: 1px solid var(--border); color: var(--secondary); }
+        .btn-danger { background: var(--danger); color: white; }
+
+        /* --- EDITOR TABLE --- */
+        .editor-container {
+            padding: 20px;
+            overflow-x: auto;
+            flex: 1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 6px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        th.day-header, td.day-cell {
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            writing-mode: vertical-rl;
+            transform: rotate(180deg);
+            padding: 15px 5px;
+            text-align: center;
+            min-width: 35px;
+            letter-spacing: 1px;
+            font-size: 0.8rem;
+        }
+
+        td.stream-cell {
+            background-color: #f1f5f9;
+            font-weight: 700;
+            color: var(--secondary);
+            min-width: 80px;
+            text-align: left;
+            padding-left: 10px;
+            font-size: 0.85rem;
+        }
+
+        th.time-header {
+            background-color: #e2e8f0;
+            font-size: 0.75rem;
+            color: var(--secondary);
+            min-width: 70px;
+            padding: 4px;
+        }
+
+        td.slot-cell {
+            cursor: pointer;
+            min-height: 50px;
+            font-size: 0.8rem;
+            transition: background 0.1s;
+        }
+
+        td.slot-cell:hover { background-color: #f8fafc; }
+        td.slot-cell.conflict { background-color: #fee2e2; border: 2px solid var(--danger); }
+        
+        .slot-subject { font-weight: 700; display: block; margin-bottom: 2px; }
+        .slot-teacher { color: var(--secondary); font-size: 0.7rem; }
+        
+        .slot-cell.activity {
+            background-color: #fffbeb; 
+            font-style: italic;
+            font-weight: bold;
+        }
+
+        /* --- PRINT OPTIMIZATION --- */
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 0.3cm; /* Tiny margins for max space */
+            }
+            aside, .view-section:not(#print-view), .toolbar { display: none !important; }
+            body, main { height: auto; overflow: visible; background: white; margin: 0; padding: 0; display: block; }
+            #print-view-container { display: block !important; background: white; padding: 0; }
+            .print-paper { box-shadow: none; padding: 0; margin: 0; width: 100%; }
+            
+            /* Compact Table */
+            .print-table { 
+                width: 100%; 
+                font-size: 8pt; /* Very small font for compactness */
+                table-layout: fixed; /* Keeps columns in check */
+                border-collapse: collapse;
+                margin-bottom: 10px;
+            }
+            
+            .print-table th, .print-table td {
+                border: 1px solid black;
+                padding: 2px 3px; /* Minimal padding */
+                font-family: 'Arial', sans-serif;
+                overflow: hidden;
+                white-space: nowrap;
+            }
+
+            /* Column Widths (Critical for fitting on page) */
+            .print-col-day { width: 30px; }
+            .print-col-stream { width: 60px; }
+            .print-col-time { width: 60px; }
+            .print-col-activity { width: 65px; }
+
+            /* Headers */
+            td.day-cell { 
+                background-color: #ccc !important; 
+                -webkit-print-color-adjust: exact; 
+                color: black !important; 
+                border: 1px solid black; 
+                writing-mode: vertical-rl;
+                transform: rotate(180deg);
+                font-size: 7pt;
+            }
+            td.stream-cell { background-color: #eee !important; -webkit-print-color-adjust: exact; font-weight: bold; font-size: 8pt; }
+            
+            .print-header-row {
+                text-align: center;
+                border: none !important;
+                font-weight: bold;
+                text-transform: uppercase;
+                padding: 2px;
+            }
+
+            /* Teacher Legend */
+            .legend-container {
+                margin-top: 10px;
+                border-top: 2px solid black;
+                padding-top: 5px;
+                font-size: 8pt;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            .legend-item { margin-right: 15px; font-weight: bold; }
+        }
+
+        /* --- SCREEN PRINT PREVIEW STYLES --- */
+        #print-view-container {
+            padding: 20px;
+            background: #525659; 
+            height: 100%;
+            overflow-y: auto;
+            display: flex;
+            justify-content: center;
+        }
+
+        .print-paper {
+            background: white;
+            width: 100%;
+            max-width: 1200px;
+            padding: 10px; /* Reduced padding on screen */
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            margin-bottom: 40px;
+        }
+
+        /* --- MODAL --- */
+        .modal {
+            display: none; position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-content { background: white; padding: 25px; border-radius: 8px; width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+        .settings-card { background: white; padding: 20px; max-width: 600px; margin: 20px auto; border-radius: 8px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside>
+        <h1>📅 Planner Pro</h1>
+        <nav>
+            <button class="nav-btn active" onclick="showView('editor')">📝 Editor</button>
+            <button class="nav-btn" onclick="showView('print-view')">🖨️ Print (Landscape)</button>
+            <button class="nav-btn" onclick="showView('settings')">⚙️ Teachers & Data</button>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main>
+        
+        <!-- EDITOR VIEW -->
+        <section id="editor" class="view-section active">
+            <div class="toolbar">
+                <input type="text" id="schoolName" class="school-input" placeholder="School Name" oninput="updateHeaderState()">
+                <input type="text" id="poBox" placeholder="P.O. Box" style="width: 120px;" oninput="updateHeaderState()">
+                <input type="text" id="termName" placeholder="Term" style="width: 80px;" oninput="updateHeaderState()">
+                
+                <div class="toolbar-actions">
+                    <button class="btn btn-secondary" onclick="autoFillDefaults()">Auto-Fill</button>
+                    <button class="btn btn-secondary" onclick="generateRandom()">Randomize</button>
+                    <button class="btn btn-danger" onclick="clearAll()">Clear</button>
+                </div>
+            </div>
+
+            <div class="editor-container" id="editor-table-wrapper">
+                <!-- Javascript renders table here -->
+            </div>
+        </section>
+
+        <!-- PRINT VIEW -->
+        <section id="print-view" class="view-section">
+            <div style="background: white; padding: 10px; margin-bottom: 10px; text-align: right;">
+                <button class="btn btn-secondary" onclick="showView('editor')">← Edit</button>
+                <button class="btn btn-primary" onclick="window.print()">🖨️ Download PDF</button>
+            </div>
+            <div id="print-view-container">
+                <div class="print-paper" id="print-paper-content">
+                    <!-- Javascript renders print tables here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- SETTINGS / TEACHER NUMBERS -->
+        <section id="settings" class="view-section">
+            <div class="settings-card">
+                <h3>Teacher & Subject Management</h3>
+                <p><strong>Note:</strong> Assign a <strong>Number</strong> to each teacher. The timetable will show this number instead of the full name to save space.</p>
+                
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+                
+                <div style="margin-bottom: 20px;">
+                    <label><strong>Add Teacher</strong></label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="newTeacherNum" placeholder="Num (e.g. 1)" style="width: 80px;">
+                        <input type="text" id="newTeacher" placeholder="Name (e.g. Mr. Smith)" style="flex:1;">
+                        <button class="btn btn-primary" onclick="addTeacher()">Add</button>
+                    </div>
+                    <ul id="teacherList" style="padding-left: 20px; margin-top: 10px; font-size: 0.9rem;"></ul>
+                </div>
+
+                <div style="margin-bottom: 20px;">
+                    <label><strong>Add Subject</strong></label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="newSubject" placeholder="Name (e.g. Mathematics)" style="flex:1;">
+                        <button class="btn btn-primary" onclick="addSubject()">Add</button>
+                    </div>
+                    <ul id="subjectList" style="padding-left: 20px; margin-top: 10px; font-size: 0.9rem;"></ul>
+                </div>
+
+                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #eee;">
+                
+                <button class="btn btn-danger" onclick="factoryReset()">⚠️ Factory Reset</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODAL -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top: 0;">Edit Slot</h3>
+            <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">Subject</label>
+            <select id="modalSubject"></select>
+            
+            <label style="display:block; margin:10px 0 5px; font-weight:bold; font-size:0.9rem;">Teacher (Number)</label>
+            <select id="modalTeacher"></select>
+            
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="clearSlot()">Clear</button>
+                <button class="btn btn-primary" onclick="saveSlot()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIG ---
+        const days = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
+        const timeSlots = [
+            "8:20–9:00", "9:00–9:40", "9:40–9:50", "9:50–10:30",
+            "10:30–11:10", "11:10–11:40", "11:40–12:20", "12:20–1:00",
+            "1:00–2:00", "2:00–2:40", "2:40–3:20", "3:20–4:00", "4:00–6:00"
+        ];
+        const streams = ["10 STEM", "10 S.S", "FORM 3", "FORM 4"];
+        
+        const breakConfig = {
+            2: "B", 5: "R", 8: "LUNCH"
+        };
+
+        const gamesConfig = {
+            "MONDAY": "GAMES", "TUESDAY": "GAMES", "WEDNESDAY": "CLUBS", 
+            "THURSDAY": "GAMES", "FRIDAY": "SOCIETIES"
+        };
+
+        // --- STATE ---
+        let appState = {
+            schoolName: "EXCELLENT ACADEMY",
+            poBox: "P.O. BOX 12345",
+            term: "TERM 2",
+            teachers: [
+                {id: 1, name: "Mr. Anderson", number: "1"}, 
+                {id: 2, name: "Ms. Baker", number: "2"}, 
+                {id: 3, name: "Mr. Clark", number: "3"}, 
+                {id: 4, name: "Mrs. Davis", number: "4"}
+            ],
+            subjects: [
+                {id: 1, name: "MAT"}, {id: 2, name: "ENG"}, {id: 3, name: "CHEM"}, 
+                {id: 4, name: "PHY"}, {id: 5, name: "BIO"}
+            ],
+            schedule: {} 
+        };
+
+        let currentEdit = null;
+
+        function init() {
+            const saved = localStorage.getItem('schoolPlanner_v4');
+            if (saved) appState = JSON.parse(saved);
+            else autoFillDefaults(); // Fill defaults on first load
+            
+            document.getElementById('schoolName').value = appState.schoolName;
+            document.getElementById('poBox').value = appState.poBox;
+            document.getElementById('termName').value = appState.term;
+
+            renderLists();
+            renderEditor();
+        }
+
+        function saveState() {
+            localStorage.setItem('schoolPlanner_v4', JSON.stringify(appState));
+        }
+
+        function updateHeaderState() {
+            appState.schoolName = document.getElementById('schoolName').value;
+            appState.poBox = document.getElementById('poBox').value;
+            appState.term = document.getElementById('termName').value;
+            saveState();
+            if(document.getElementById('print-view').classList.contains('active')) renderPrintView();
+        }
+
+        function showView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if(viewId === 'print-view') renderPrintView();
+        }
+
+        // --- RENDER EDITOR ---
+        function renderEditor() {
+            const container = document.getElementById('editor-table-wrapper');
+            let html = `<table><thead><tr><th style="width:35px;">DAY</th><th style="width:80px;">STREAM</th>`;
+            timeSlots.forEach(t => html += `<th class="time-header">${t}</th>`);
+            html += `</tr></thead><tbody>`;
+
+            days.forEach(day => {
+                streams.forEach((stream, streamIndex) => {
+                    html += `<tr>`;
+                    if(streamIndex === 0) html += `<td rowspan="${streams.length}" class="day-cell">${day}</td>`;
+                    html += `<td class="stream-cell">${stream}</td>`;
+
+                    timeSlots.forEach((slot, slotIndex) => {
+                        const key = `${day}-${stream}-${slotIndex}`;
+                        const data = appState.schedule[key];
+                        let cellContent = `<span style="color:#ccc;">+</span>`;
+                        let cellClass = "slot-cell";
+                        
+                        if (breakConfig[slotIndex]) {
+                            cellContent = `<span style="font-weight:bold; color:#666;">${breakConfig[slotIndex]}</span>`;
+                            cellClass += " break-cell";
+                        }
+                        else if (data && data.isActivity) {
+                            cellContent = data.text;
+                            cellClass += " activity";
+                        }
+                        else if (data) {
+                            const subj = appState.subjects.find(s => s.id == data.subjectId);
+                            const teach = appState.teachers.find(t => t.id == data.teacherId);
+                            
+                            if (subj && teach) {
+                                if(checkConflict(day, slotIndex, teach.id)) cellClass += " conflict";
+                                // Display: Subject (TeacherNumber)
+                                cellContent = `<span class="slot-subject">${subj.name}</span><span class="slot-teacher">(${teach.number})</span>`;
+                            }
+                        }
+
+                        html += `<td class="${cellClass}" onclick="openModal('${day}', '${stream}', ${slotIndex})">${cellContent}</td>`;
+                    });
+                    html += `</tr>`;
+                });
+            });
+
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+        }
+
+        // --- RENDER PRINT VIEW (COMPACT) ---
+        function renderPrintView() {
+            const container = document.getElementById('print-paper-content');
+            let html = "";
+
+            // Render Table per Day (or could be one giant table, but separate is cleaner for page breaks)
+            days.forEach(day => {
+                html += `<table class="print-table" style="page-break-inside: avoid;">`;
+                
+                // Header
+                html += `<thead><tr>`;
+                html += `<th colspan="${timeSlots.length + 1}" class="print-header-row" style="font-size: 11pt;">${appState.schoolName} | ${appState.term}</th>`;
+                html += `</tr><tr>`;
+                html += `<th style="width:30px;"></th>`;
+                html += `<th style="width:60px;">STREAM</th>`;
+                timeSlots.forEach(t => html += `<th class="print-col-time">${t}</th>`);
+                html += `</tr></thead><tbody>`;
+
+                // Body
+                streams.forEach((stream, streamIndex) => {
+                    html += `<tr>`;
+                    if(streamIndex === 0) {
+                        html += `<td rowspan="${streams.length}" class="print-col-day day-cell">${day}</td>`;
+                    }
+                    html += `<td class="print-col-stream stream-cell">${stream}</td>`;
+
+                    timeSlots.forEach((slot, slotIndex) => {
+                        const key = `${day}-${stream}-${slotIndex}`;
+                        const data = appState.schedule[key];
+                        let content = "";
+                        
+                        if (breakConfig[slotIndex]) {
+                            content = `<strong>${breakConfig[slotIndex]}</strong>`;
+                        } else if (data && data.isActivity) {
+                            content = `<span style="font-style:italic;">${data.text}</span>`;
+                        } else if (data) {
+                            const subj = appState.subjects.find(s => s.id == data.subjectId);
+                            const teach = appState.teachers.find(t => t.id == data.teacherId);
+                            if(subj && teach) {
+                                content = `${subj.name}<br>(${teach.number})`;
+                            }
+                        }
+                        
+                        // Special class for Games column width
+                        const colClass = (slotIndex === 12) ? "print-col-activity" : "";
+                        html += `<td class="${colClass}">${content}</td>`;
+                    });
+                    html += `</tr>`;
+                });
+
+                html += `</tbody></table>`;
+            });
+
+            // --- TEACHER LEGEND ---
+            html += `<div class="legend-container">`;
+            html += `<strong>TEACHER KEY:</strong><br>`;
+            // Sort teachers by number
+            const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+            
+            sortedTeachers.forEach(t => {
+                html += `<span class="legend-item">[${t.number}] ${t.name}</span>`;
+            });
+            html += `</div>`;
+
+            container.innerHTML = html;
+        }
+
+        // --- LOGIC ---
+        function checkConflict(day, slotIndex, teacherId) {
+            let count = 0;
+            streams.forEach(str => {
+                const key = `${day}-${str}-${slotIndex}`;
+                const d = appState.schedule[key];
+                if (d && d.teacherId == teacherId) count++;
+            });
+            return count > 1;
+        }
+
+        function autoFillDefaults() {
+            days.forEach(day => {
+                streams.forEach(stream => {
+                    timeSlots.forEach((slot, slotIndex) => {
+                        const key = `${day}-${stream}-${slotIndex}`;
+                        if(breakConfig[slotIndex]) {
+                            appState.schedule[key] = { isBreak: true };
+                        }
+                        else if (slotIndex === 12) { 
+                            appState.schedule[key] = { isActivity: true, text: gamesConfig[day] };
+                        }
+                    });
+                });
+            });
+            saveState(); renderEditor();
+        }
+
+        function openModal(day, stream, idx) {
+            currentEdit = { day, stream, idx };
+            const modal = document.getElementById('editModal');
+            const sSelect = document.getElementById('modalSubject');
+            const tSelect = document.getElementById('modalTeacher');
+            
+            if(breakConfig[idx]) return;
+
+            // Sort teachers by number for better dropdown UX
+            const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+
+            sSelect.innerHTML = `<option value="">-- Subject --</option>` + 
+                appState.subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            
+            tSelect.innerHTML = `<option value="">-- Teacher --</option>` + 
+                sortedTeachers.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
+
+            const key = `${day}-${stream}-${idx}`;
+            const data = appState.schedule[key];
+
+            if (data && !data.isBreak && !data.isActivity) {
+                sSelect.value = data.subjectId;
+                tSelect.value = data.teacherId;
+            } else {
+                sSelect.value = "";
+                tSelect.value = "";
+            }
+
+            modal.style.display = 'flex';
+        }
+
+        function saveSlot() {
+            const sId = document.getElementById('modalSubject').value;
+            const tId = document.getElementById('modalTeacher').value;
+            if(sId && tId) {
+                const key = `${currentEdit.day}-${currentEdit.stream}-${currentEdit.idx}`;
+                appState.schedule[key] = { subjectId: parseInt(sId), teacherId: parseInt(tId) };
+                saveState();
+            }
+            document.getElementById('editModal').style.display = 'none';
+            renderEditor();
+        }
+
+        function clearSlot() {
+            const key = `${currentEdit.day}-${currentEdit.stream}-${currentEdit.idx}`;
+            delete appState.schedule[key];
+            saveState();
+            document.getElementById('editModal').style.display = 'none';
+            renderEditor();
+        }
+
+        function generateRandom() {
+            if(!confirm("Overwrite schedule?")) return;
+            appState.schedule = {};
+            autoFillDefaults();
+            days.forEach(day => {
+                streams.forEach(stream => {
+                    timeSlots.forEach((slot, idx) => {
+                        if(!breakConfig[idx] && idx !== 12) {
+                            const rSubj = appState.subjects[Math.floor(Math.random() * appState.subjects.length)];
+                            const rTeach = appState.teachers[Math.floor(Math.random() * appState.teachers.length)];
+                            appState.schedule[`${day}-${stream}-${idx}`] = { subjectId: rSubj.id, teacherId: rTeach.id };
+                        }
+                    });
+                });
+            });
+            saveState(); renderEditor();
+        }
+        
+        function clearAll() {
+            if(confirm("Clear lessons (keep breaks/games)?")) {
+                days.forEach(day => {
+                    streams.forEach(stream => {
+                        timeSlots.forEach((slot, idx) => {
+                            if(!breakConfig[idx] && idx !== 12) delete appState.schedule[`${day}-${stream}-${idx}`];
+                        });
+                    });
+                });
+                saveState(); renderEditor();
+            }
+        }
+
+        // --- DATA ENTRY ---
+        function addTeacher() {
+            const num = document.getElementById('newTeacherNum').value;
+            const name = document.getElementById('newTeacher').value;
+            if(name) { 
+                appState.teachers.push({id: Date.now(), name, number: num || "?"}); 
+                document.getElementById('newTeacherNum').value = "";
+                document.getElementById('newTeacher').value = "";
+                renderLists(); saveState(); 
+            }
+        }
+        function addSubject() {
+            const name = document.getElementById('newSubject').value;
+            if(name) { 
+                appState.subjects.push({id: Date.now(), name}); 
+                document.getElementById('newSubject').value = ""; 
+                renderLists(); saveState(); 
+            }
+        }
+        function renderLists() {
+            const sorted = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+            document.getElementById('teacherList').innerHTML = sorted.map(t => `<li><strong>[${t.number}]</strong> ${t.name}</li>`).join('');
+            document.getElementById('subjectList').innerHTML = appState.subjects.map(s => `<li>${s.name}</li>`).join('');
+        }
+
+        function factoryReset() {
+            if(confirm("RESET EVERYTHING?")) { localStorage.removeItem('schoolPlanner_v4'); location.reload(); }
+        }
+
+        window.onclick = function(e) {
+            if(e.target == document.getElementById('editModal')) document.getElementById('editModal').style.display = 'none';
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
