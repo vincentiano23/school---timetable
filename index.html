@@ -39,7 +39,7 @@
             padding: 10px 15px;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid var(--border);
+            border-bottom:1px solid var(--border);
             box-shadow: var(--shadow-sm);
             z-index: 60;
             position: relative;
@@ -242,23 +242,33 @@
         /* --- PRINT OPTIMIZATION --- */
         @media print {
             @page { size: A4 landscape; margin: 0.3cm; }
-            aside, .view-section:not(#print-view), .toolbar, .mobile-menu-btn, .mobile-nav-bar { display: none !important; }
+            aside, .view-section:not(#print-view), .toolbar, .mobile-menu-btn, .mobile-nav-bar, .no-print { display: none !important; }
             body, main { height: auto; overflow: visible; background: white; margin: 0; padding: 0; display: block; }
             #print-view-container { display: block !important; background: white; padding: 0; }
             .print-paper { box-shadow: none; padding: 0; margin: 0; width: 100%; }
             
-            .print-table { width: 100%; font-size: 8pt; table-layout: fixed; border-collapse: collapse; margin-bottom: 10px; }
+            .print-table { width: 100%; font-size: 8pt; table-layout: fixed; border-collapse: collapse; margin-bottom: 20px; page-break-inside: avoid; }
             .print-table th, .print-table td { border: 1px solid black; padding: 2px 3px; font-family: 'Arial', sans-serif; overflow: hidden; white-space: nowrap; }
+            
             .print-col-day { width: 30px; }
             .print-col-stream { width: 60px; }
             .print-col-time { width: 60px; }
             .print-col-activity { width: 65px; }
 
+            /* Single Global Header Styles */
+            .global-header {
+                text-align: center;
+                margin-bottom: 20px;
+                border-bottom: 3px double black;
+                padding-bottom: 10px;
+            }
+            .global-header h1 { margin: 0; text-transform: uppercase; font-size: 16pt; font-weight: bold; }
+            .global-header p { margin: 5px 0 0 0; font-size: 11pt; }
+
             td.day-cell { background-color: #ccc !important; -webkit-print-color-adjust: exact; color: black !important; border: 1px solid black; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 7pt; }
             td.stream-cell { background-color: #eee !important; -webkit-print-color-adjust: exact; font-weight: bold; font-size: 8pt; }
             
-            .print-header-row { text-align: center; border: none !important; font-weight: bold; text-transform: uppercase; padding: 2px; }
-            .legend-container { margin-top: 10px; border-top: 2px solid black; padding-top: 5px; font-size: 8pt; display: flex; flex-wrap: wrap; gap: 10px; }
+            .legend-container { margin-top: 20px; border-top: 2px solid black; padding-top: 10px; font-size: 8pt; display: flex; flex-wrap: wrap; gap: 10px; }
             .legend-item { margin-right: 15px; font-weight: bold; }
         }
 
@@ -272,7 +282,7 @@
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
         
         .combo-list { margin-top: 15px; border: 1px solid #eee; border-radius: 8px; background: #f9fafb; padding: 10px; max-height: 150px; overflow-y: auto; }
-        .combo-item { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom:1px solid #eee; font-size: 0.9rem; }
+        .combo-item { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
         .combo-item:last-child { border-bottom: none; }
         .remove-combo { color: red; cursor: pointer; font-weight: bold; }
 
@@ -292,7 +302,6 @@
             th.time-header { font-size: 0.65rem; min-width: 60px; }
             td.slot-cell { font-size: 0.75rem; }
             
-            /* Print view button stack */
             .print-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; }
             .btn { width: 100%; }
         }
@@ -349,17 +358,17 @@
 
         <!-- PRINT VIEW -->
         <section id="print-view" class="view-section">
-            <div style="background: white; padding: 10px; margin-bottom: 10px; text-align: right; border-bottom: 1px solid #ddd;">
+            <!-- Added class 'no-print' to hide this on PDF -->
+            <div style="background: white; padding: 10px; margin-bottom: 10px; text-align: right; border-bottom: 1px solid #ddd;" class="no-print">
                 <div class="print-actions">
                     <button class="btn btn-secondary" onclick="showView('editor')">← Back to Editor</button>
-                    <!-- New Feature: Download Empty Template -->
                     <button class="btn btn-secondary" onclick="printTemplate()">📄 Download Empty Template</button>
                     <button class="btn btn-primary" onclick="window.print()">🖨️ Download PDF</button>
                 </div>
             </div>
             <div id="print-view-container">
                 <div class="print-paper" id="print-paper-content">
-                    <!-- Javascript renders print tables here -->
+                    <!-- Javascript renders header and tables here -->
                 </div>
             </div>
         </section>
@@ -457,9 +466,9 @@
         let tempSlotItems = [];
 
         function init() {
-            const saved = localStorage.getItem('schoolPlanner_v7');
+            const saved = localStorage.getItem('schoolPlanner_v8');
             if (saved) appState = JSON.parse(saved);
-            else autoFillDefaults(); // Only fills structural breaks/games, no lessons
+            else autoFillDefaults(); // Only fills structural breaks/games
             
             document.getElementById('schoolName').value = appState.schoolName;
             document.getElementById('poBox').value = appState.poBox;
@@ -470,7 +479,7 @@
         }
 
         function saveState() {
-            localStorage.setItem('schoolPlanner_v7', JSON.stringify(appState));
+            localStorage.setItem('schoolPlanner_v8', JSON.stringify(appState));
         }
 
         function updateHeaderState() {
@@ -577,28 +586,38 @@
             container.innerHTML = html;
         }
 
-        // --- RENDER PRINT VIEW ---
+        // --- RENDER PRINT VIEW (SINGLE HEADER) ---
         function renderPrintView() {
             const container = document.getElementById('print-paper-content');
-            let html = "";
+            
+            // 1. Create Single Header Block
+            const headerBlock = `
+                <div class="global-header">
+                    <h1>${appState.schoolName}</h1>
+                    <p>${appState.poBox} | ${appState.term}</p>
+                </div>
+            `;
 
+            // 2. Generate Tables
+            let tablesHtml = "";
             days.forEach(day => {
-                html += `<table class="print-table" style="page-break-inside: avoid;">`;
+                tablesHtml += `<table class="print-table">`;
                 
-                html += `<thead><tr>`;
-                html += `<th colspan="${timeSlots.length + 1}" class="print-header-row" style="font-size: 11pt;">${appState.schoolName} | ${appState.term}</th>`;
-                html += `</tr><tr>`;
-                html += `<th style="width:30px;"></th>`;
-                html += `<th style="width:60px;">STREAM</th>`;
-                timeSlots.forEach(t => html += `<th class="print-col-time">${t}</th>`);
-                html += `</tr></thead><tbody>`;
+                // Removed the previous row: <tr><th colspan="...">Name</th></tr>
+                // Now we only have time headers
+                
+                tablesHtml += `<thead><tr>`;
+                tablesHtml += `<th style="width:30px;"></th>`;
+                tablesHtml += `<th style="width:60px;">STREAM</th>`;
+                timeSlots.forEach(t => tablesHtml += `<th class="print-col-time">${t}</th>`);
+                tablesHtml += `</tr></thead><tbody>`;
 
                 streams.forEach((stream, streamIndex) => {
-                    html += `<tr>`;
+                    tablesHtml += `<tr>`;
                     if(streamIndex === 0) {
-                        html += `<td rowspan="${streams.length}" class="print-col-day day-cell">${day}</td>`;
+                        tablesHtml += `<td rowspan="${streams.length}" class="print-col-day day-cell">${day}</td>`;
                     }
-                    html += `<td class="print-col-stream stream-cell">${stream}</td>`;
+                    tablesHtml += `<td class="print-col-stream stream-cell">${stream}</td>`;
 
                     timeSlots.forEach((slot, slotIndex) => {
                         const key = `${day}-${stream}-${slotIndex}`;
@@ -622,72 +641,74 @@
                         }
                         
                         const colClass = (slotIndex === 12) ? "print-col-activity" : "";
-                        html += `<td class="${colClass}">${content}</td>`;
+                        tablesHtml += `<td class="${colClass}">${content}</td>`;
                     });
-                    html += `</tr>`;
+                    tablesHtml += `</tr>`;
                 });
 
-                html += `</tbody></table>`;
+                tablesHtml += `</tbody></table>`;
             });
 
-            html += `<div class="legend-container">`;
-            html += `<strong>TEACHER KEY:</strong><br>`;
+            // 3. Render Legend
+            const legendHtml = `<div class="legend-container"><strong>TEACHER KEY:</strong><br>`;
             const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
-            
-            sortedTeachers.forEach(t => { html += `<span class="legend-item">[${t.number}] ${t.name}</span>`; });
-            html += `</div>`;
+            sortedTeachers.forEach(t => { legendHtml += `<span class="legend-item">[${t.number}] ${t.name}</span>`; });
+            legendHtml += `</div>`;
 
-            container.innerHTML = html;
+            container.innerHTML = headerBlock + tablesHtml + legendHtml;
         }
 
-        // --- PRINT EMPTY TEMPLATE (NEW FEATURE) ---
+        // --- PRINT EMPTY TEMPLATE (UPDATES) ---
         function printTemplate() {
             const container = document.getElementById('print-paper-content');
-            let html = "";
+            
+            // Header Block
+            const headerBlock = `
+                <div class="global-header">
+                    <h1>${appState.schoolName} | ${appState.term} (TEMPLATE)</h1>
+                    <p>${appState.poBox}</p>
+                </div>
+            `;
 
+            // Tables (Empty)
+            let tablesHtml = "";
             days.forEach(day => {
-                html += `<table class="print-table" style="page-break-inside: avoid;">`;
+                tablesHtml += `<table class="print-table">`;
                 
-                html += `<thead><tr>`;
-                html += `<th colspan="${timeSlots.length + 1}" class="print-header-row" style="font-size: 11pt;">${appState.schoolName} | ${appState.term} (TEMPLATE)</th>`;
-                html += `</tr><tr>`;
-                html += `<th style="width:30px;"></th>`;
-                html += `<th style="width:60px;">STREAM</th>`;
-                timeSlots.forEach(t => html += `<th class="print-col-time">${t}</th>`);
-                html += `</tr></thead><tbody>`;
+                tablesHtml += `<thead><tr>`;
+                tablesHtml += `<th style="width:30px;"></th>`;
+                tablesHtml += `<th style="width:60px;">STREAM</th>`;
+                timeSlots.forEach(t => tablesHtml += `<th class="print-col-time">${t}</th>`);
+                tablesHtml += `</tr></thead><tbody>`;
 
                 streams.forEach((stream, streamIndex) => {
-                    html += `<tr>`;
+                    tablesHtml += `<tr>`;
                     if(streamIndex === 0) {
-                        html += `<td rowspan="${streams.length}" class="print-col-day day-cell">${day}</td>`;
+                        tablesHtml += `<td rowspan="${streams.length}" class="print-col-day day-cell">${day}</td>`;
                     }
-                    html += `<td class="print-col-stream stream-cell">${stream}</td>`;
+                    tablesHtml += `<td class="print-col-stream stream-cell">${stream}</td>`;
 
                     timeSlots.forEach((slot, slotIndex) => {
-                        // Render empty cells only (or breaks if desired, usually templates are fully blank)
-                        // We will keep breaks as they are structural, but remove lessons/games
+                        // Only keep breaks for template, remove everything else
                         let content = "";
                         if (breakConfig[slotIndex]) {
                              content = `<strong>${breakConfig[slotIndex]}</strong>`;
                         }
                         
                         const colClass = (slotIndex === 12) ? "print-col-activity" : "";
-                        html += `<td class="${colClass}">${content}</td>`;
+                        tablesHtml += `<td class="${colClass}">${content}</td>`;
                     });
-                    html += `</tr>`;
+                    tablesHtml += `</tr>`;
                 });
 
-                html += `</tbody></table>`;
+                tablesHtml += `</tbody></table>`;
             });
 
-            html += `<div class="legend-container">`;
-            html += `<strong>TEACHER KEY:</strong><br>`;
-            html += `</div>`;
+            // Legend (Empty placeholder)
+            const legendHtml = `<div class="legend-container"><strong>TEACHER KEY:</strong><br></div>`;
 
-            container.innerHTML = html;
-            // Trigger print
+            container.innerHTML = headerBlock + tablesHtml + legendHtml;
             setTimeout(() => { window.print(); }, 500);
-            // Restore view after print
             setTimeout(() => { renderPrintView(); }, 2000);
         }
 
@@ -794,7 +815,6 @@
             if(!confirm("Overwrite schedule?")) return;
             appState.schedule = {};
             autoFillDefaults();
-            // Only generate if subjects and teachers exist
             if(appState.teachers.length > 0 && appState.subjects.length > 0) {
                 days.forEach(day => {
                     streams.forEach(stream => {
@@ -857,7 +877,7 @@
         }
 
         function factoryReset() {
-            if(confirm("RESET EVERYTHING?")) { localStorage.removeItem('schoolPlanner_v7'); location.reload(); }
+            if(confirm("RESET EVERYTHING?")) { localStorage.removeItem('schoolPlanner_v8'); location.reload(); }
         }
 
         window.onclick = function(e) {
