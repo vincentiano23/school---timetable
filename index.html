@@ -507,8 +507,11 @@
 
         function init() {
             const saved = localStorage.getItem('schoolPlanner_v9');
-            if (saved) appState = JSON.parse(saved);
-            else autoFillDefaults(); // Only fills structural breaks/games
+            if (saved) {
+                appState = JSON.parse(saved);
+            } else {
+                factoryReset(); // Load default combinations if fresh
+            }
             
             document.getElementById('schoolName').value = appState.schoolName;
             document.getElementById('poBox').value = appState.poBox;
@@ -1028,7 +1031,35 @@
         }
 
         function factoryReset() {
-            if(confirm("RESET EVERYTHING?")) { localStorage.removeItem('schoolPlanner_v9'); location.reload(); }
+            if(confirm("RESET EVERYTHING to default Combinations?")) { 
+                appState = {
+                    schoolName: "KENYA HIGH SCHOOL",
+                    poBox: "12345 NAIROBI",
+                    term: "TERM 1",
+                    teachers: [
+                        {id: 1, name: "Teacher 1", number: "1"},
+                        {id: 2, name: "Teacher 2", number: "2"},
+                        {id: 3, name: "Teacher 3", number: "3"},
+                        {id: 4, name: "Teacher 4", number: "4"},
+                        {id: 5, name: "Teacher 5", number: "5"}
+                    ],
+                    subjects: [
+                        {id: 101, name: "PHY/BIO"},
+                        {id: 102, name: "GEO/HIST"},
+                        {id: 103, name: "AGRIC/COMP/HOMESCI"},
+                        {id: 104, name: "LIT/FASIHI/BS"},
+                        {id: 105, name: "AGRIC/BS/COMP"},
+                        {id: 106, name: "ENG"},
+                        {id: 107, name: "KISW"},
+                        {id: 108, name: "MATH"},
+                        {id: 109, name: "CHEM"}
+                    ],
+                    schedule: {}
+                };
+                autoFillDefaults();
+                saveState();
+                init(); // Reload UI
+            }
         }
 
         window.onclick = function(e) {
