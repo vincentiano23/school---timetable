@@ -291,7 +291,7 @@
 
         /* --- MODAL --- */
         .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(4px); }
-        .modal-content { background: white; padding: 30px; border-radius: 16px; width: 450px; box-shadow: var(--shadow-2xl); animation: fadeIn 0.3s ease; max-height: 90vh; overflow-y: auto;}
+        .modal-content { background: white; padding: 30px; border-radius: 16px; width: 500px; box-shadow: var(--shadow-2xl); animation: fadeIn 0.3s ease; max-height: 90vh; overflow-y: auto;}
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
         
         .combo-list { margin-top: 15px; border: 1px solid #eee; border-radius: 8px; background: #f9fafb; padding: 10px; max-height: 200px; overflow-y: auto; }
@@ -299,6 +299,31 @@
         .combo-item:last-child { border-bottom: none; }
         .remove-combo { color: var(--danger); cursor: pointer; font-weight: bold; font-size: 1.1rem; margin-left: 10px;}
         .edit-combo { color: var(--primary); cursor: pointer; font-weight: bold; margin-left: 10px;}
+
+        /* Dynamic Teacher Inputs */
+        .part-input-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            background: #f0f9ff;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px dashed var(--primary);
+        }
+        .part-label {
+            width: 100px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: var(--primary-dark);
+        }
+        .part-teacher-select {
+            flex: 1;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
 
         .settings-card { background: white; padding: 25px; max-width: 700px; margin: 20px auto; border-radius: var(--radius); box-shadow: var(--shadow-md); border: 1px solid var(--border); }
         .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -317,6 +342,7 @@
             th.time-header { font-size: 0.65rem; min-width: 60px; }
             td.slot-cell { font-size: 0.75rem; }
             .settings-grid { grid-template-columns: 1fr; }
+            .modal-content { width: 95%; padding: 20px; }
         }
     </style>
 </head>
@@ -334,14 +360,14 @@
             <button class="nav-btn" onclick="showView('settings')">⚙️ Teachers & Subjects</button>
         </nav>
         <div style="margin-top: auto; font-size: 0.8rem; color: #94a3b8; text-align: center;">
-            <p>CRUD Enabled • Flexible Combos</p>
+            <p>Combination Split Support</p>
         </div>
     </aside>
 
     <!-- MAIN CONTENT -->
     <main>
         
-        <!-- MOBILE NAVIGATION (Three Arrows) -->
+        <!-- MOBILE NAVIGATION -->
         <div class="mobile-nav-bar">
             <button class="nav-arrow-btn" onclick="navMobile(-1)">&#10094;</button>
             <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
@@ -371,7 +397,6 @@
 
         <!-- PRINT VIEW -->
         <section id="print-view" class="view-section">
-            <!-- Added class 'no-print' to hide this on PDF -->
             <div style="background: white; padding: 10px; margin-bottom: 10px; text-align: right; border-bottom: 1px solid #ddd;" class="no-print">
                 <div class="print-actions">
                     <button class="btn btn-secondary" onclick="showView('editor')">← Back to Editor</button>
@@ -400,7 +425,7 @@
                         <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
                             <input type="text" id="newTeacherNum" placeholder="Num (e.g. 1)" style="width: 60px;">
                             <input type="text" id="newTeacher" placeholder="Name (e.g. Mr. Omondi)" style="flex:1;">
-                            <input type="hidden" id="editTeacherId"> <!-- Hidden field for editing -->
+                            <input type="hidden" id="editTeacherId">
                         </div>
                         
                         <div style="display: flex; gap: 10px;">
@@ -412,12 +437,13 @@
                         <ul id="teacherList" style="padding-left: 0; margin-top: 0; max-height: 200px; overflow-y: auto; border:1px solid #eee;"></ul>
 
                         <div style="margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;">
-                            <label style="font-size: 0.85rem; font-weight: bold; display:block; margin-bottom:5px;">Combo Builder (Optional)</label>
+                            <label style="font-size: 0.85rem; font-weight: bold; display:block; margin-bottom:5px;">Combo Builder</label>
                             <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                                <input type="text" id="comboSubj1" placeholder="Subject 1" style="flex:1; font-size:0.85rem;">
-                                <input type="text" id="comboSubj2" placeholder="Subject 2 (Optional)" style="flex:1; font-size:0.85rem;">
+                                <input type="text" id="comboSubj1" placeholder="Subj 1" style="flex:1; font-size:0.85rem;">
+                                <input type="text" id="comboSubj2" placeholder="Subj 2 (Optional)" style="flex:1; font-size:0.85rem;">
                             </div>
                             <button class="btn btn-secondary btn-sm" onclick="createComboSubject()">Create "Subj/Subj"</button>
+                            <p style="font-size:0.7rem; color:#666; margin:5px 0 0 0;">Separate with "/" to enable split-teacher mode.</p>
                         </div>
                     </div>
 
@@ -426,7 +452,7 @@
                         <h4 style="border-bottom: 1px solid #eee; padding-bottom:5px; margin-bottom:15px; color:var(--text-light);">SUBJECTS</h4>
                         
                         <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                            <input type="text" id="newSubject" placeholder="Name (e.g. PHY)" style="flex:1;">
+                            <input type="text" id="newSubject" placeholder="Name (e.g. PHY/BIO)" style="flex:1;">
                             <input type="hidden" id="editSubjectId">
                         </div>
                         
@@ -452,25 +478,31 @@
     <div id="editModal" class="modal">
         <div class="modal-content">
             <h3 style="margin-top: 0; color: var(--primary);">Edit Slot</h3>
-            <p style="font-size: 0.85rem; color: #666;">Add multiple items to create combinations (e.g., PHY + CHEM).</p>
             
             <div style="margin-top:15px;">
-                <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">Add Subject to Slot</label>
-                <div style="display:flex; gap:5px;">
-                    <select id="modalSubject" style="flex:2; padding:8px; border:1px solid #ddd; border-radius:4px;"></select>
-                    <select id="modalTeacher" style="flex:2; padding:8px; border:1px solid #ddd; border-radius:4px;"></select>
-                    <button class="btn btn-primary" onclick="addToSlot()">+</button>
-                </div>
+                <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">Select Subject</label>
+                <select id="modalSubject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem;" onchange="setupTeacherInputs()">
+                    <!-- Populated by JS -->
+                </select>
             </div>
 
-            <div id="comboList" class="combo-list">
-                <!-- Added items appear here -->
+            <!-- Dynamic Area for Teacher Inputs -->
+            <div id="teacherInputsContainer" style="margin-top: 15px; display: none;">
+                <label style="display:block; margin-bottom:10px; font-weight:bold; font-size:0.9rem;">Assign Teachers per Subject</label>
+                <div id="teacherRows">
+                    <!-- Inputs injected here -->
+                </div>
             </div>
             
             <div class="modal-actions">
                 <button class="btn btn-danger" onclick="clearSlot()">Clear Slot</button>
-                <button class="btn btn-primary" onclick="saveSlot()">Done</button>
+                <button class="btn btn-primary" onclick="addToSlot()">+ Add to Slot</button>
+                <button class="btn btn-success" onclick="saveSlot()">Done</button>
             </div>
+
+            <hr style="margin: 20px 0; border:0; border-top:1px solid #eee;">
+            <div style="font-size:0.85rem; color:#666;">Current items in this slot:</div>
+            <div id="comboList" class="combo-list"></div>
         </div>
     </div>
 
@@ -492,8 +524,8 @@
 
         // --- STATE ---
         let appState = {
-            schoolName: "YOUR SCHOOL NAME",
-            poBox: "P.O. BOX",
+            schoolName: "KENYA HIGH SCHOOL",
+            poBox: "12345",
             term: "TERM 1",
             teachers: [],
             subjects: [],
@@ -502,11 +534,9 @@
 
         let currentEdit = null;
         let tempSlotItems = [];
-        let editingTeacherId = null;
-        let editingSubjectId = null;
 
         function init() {
-            const saved = localStorage.getItem('schoolPlanner_v9');
+            const saved = localStorage.getItem('schoolPlanner_v10');
             if (saved) {
                 appState = JSON.parse(saved);
             } else {
@@ -523,7 +553,7 @@
         }
 
         function saveState() {
-            localStorage.setItem('schoolPlanner_v9', JSON.stringify(appState));
+            localStorage.setItem('schoolPlanner_v10', JSON.stringify(appState));
         }
 
         function updateHeaderState() {
@@ -595,14 +625,13 @@
                             let contentHtml = "";
                             
                             items.forEach(item => {
-                                const subj = appState.subjects.find(s => s.id == item.subjectId);
                                 const teach = appState.teachers.find(t => t.id == item.teacherId);
                                 
-                                if (subj && teach) {
+                                if (teach) {
                                     if(checkConflict(day, slotIndex, teach.id)) conflict = true;
                                     contentHtml += `
                                         <div class="stack-item">
-                                            <span class="slot-subject">${subj.name}</span>
+                                            <span class="slot-subject">${item.subjectName}</span>
                                             <span class="slot-teacher">(${teach.number})</span>
                                         </div>`;
                                 }
@@ -634,7 +663,6 @@
             const container = document.getElementById('print-paper-content');
             let html = "";
 
-            // Global Header
             html += `<div class="global-header">`;
             html += `<h1>${appState.schoolName}</h1>`;
             html += `<p>${appState.poBox} | ${appState.term}</p>`;
@@ -642,7 +670,6 @@
 
             days.forEach(day => {
                 html += `<table class="print-table" style="page-break-inside: avoid;">`;
-                
                 html += `<thead><tr>`;
                 html += `<th style="width:30px;"></th>`;
                 html += `<th style="width:60px;">STREAM</th>`;
@@ -668,10 +695,9 @@
                                 if(item.isActivity) {
                                     content = `<span style="font-style:italic;">${item.text}</span>`;
                                 } else {
-                                    const subj = appState.subjects.find(s => s.id == item.subjectId);
                                     const teach = appState.teachers.find(t => t.id == item.teacherId);
-                                    if(subj && teach) {
-                                        content += `${subj.name}(${teach.number})<br>`;
+                                    if(teach) {
+                                        content += `${item.subjectName}(${teach.number})<br>`;
                                     }
                                 }
                             });
@@ -698,8 +724,6 @@
         function printTemplate() {
             const container = document.getElementById('print-paper-content');
             let html = "";
-            
-            // Header
             html += `<div class="global-header">`;
             html += `<h1>${appState.schoolName} | ${appState.term} (TEMPLATE)</h1>`;
             html += `<p>${appState.poBox}</p>`;
@@ -722,9 +746,7 @@
 
                     timeSlots.forEach((slot, slotIndex) => {
                         let content = "";
-                        if (breakConfig[slotIndex]) {
-                             content = `<strong>${breakConfig[slotIndex]}</strong>`;
-                        }
+                        if (breakConfig[slotIndex]) { content = `<strong>${breakConfig[slotIndex]}</strong>`; }
                         const colClass = (slotIndex === 12) ? "print-col-activity" : "";
                         html += `<td class="${colClass}">${content}</td>`;
                     });
@@ -732,9 +754,7 @@
                 });
                 html += `</tbody></table>`;
             });
-
             html += `<div class="legend-container"><strong>TEACHER KEY:</strong><br></div>`;
-
             container.innerHTML = html;
             setTimeout(() => { window.print(); }, 500);
             setTimeout(() => { renderPrintView(); }, 2000);
@@ -758,12 +778,8 @@
                 streams.forEach(stream => {
                     timeSlots.forEach((slot, slotIndex) => {
                         const key = `${day}-${stream}-${slotIndex}`;
-                        if(breakConfig[slotIndex]) {
-                            appState.schedule[key] = [];
-                        }
-                        else if (slotIndex === 12) { 
-                            appState.schedule[key] = [{ isActivity: true, text: gamesConfig[day] }];
-                        }
+                        if(breakConfig[slotIndex]) appState.schedule[key] = [];
+                        else if (slotIndex === 12) appState.schedule[key] = [{ isActivity: true, text: gamesConfig[day] }];
                     });
                 });
             });
@@ -773,11 +789,15 @@
         function openModal(day, stream, idx) {
             currentEdit = { day, stream, idx };
             const modal = document.getElementById('editModal');
-            
             if(breakConfig[idx]) return;
 
             const key = `${day}-${stream}-${idx}`;
             tempSlotItems = appState.schedule[key] ? [...appState.schedule[key]] : [];
+            
+            // Reset Modal Inputs
+            document.getElementById('modalSubject').value = "";
+            document.getElementById('teacherInputsContainer').style.display = 'none';
+            document.getElementById('teacherRows').innerHTML = "";
             
             renderComboList();
             populateDropdowns();
@@ -786,19 +806,106 @@
 
         function populateDropdowns() {
             const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
-            document.getElementById('modalSubject').innerHTML = `<option value="">-- Subject --</option>` + 
-                appState.subjects.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            document.getElementById('modalTeacher').innerHTML = `<option value="">-- Teacher --</option>` + 
+            const teacherOptions = `<option value="">-- Select Teacher --</option>` + 
                 sortedTeachers.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
+            
+            document.getElementById('modalSubject').innerHTML = `<option value="">-- Select Subject --</option>` + 
+                appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        }
+
+        // --- KEY FUNCTION: Setup Teacher Inputs based on Combo ---
+        function setupTeacherInputs() {
+            const subjectName = document.getElementById('modalSubject').value;
+            const container = document.getElementById('teacherInputsContainer');
+            const rowsContainer = document.getElementById('teacherRows');
+
+            if (!subjectName) {
+                container.style.display = 'none';
+                return;
+            }
+
+            // Check if subject contains a "/" (Combination)
+            if (subjectName.includes('/')) {
+                container.style.display = 'block';
+                const parts = subjectName.split('/');
+                
+                // Clear previous rows
+                rowsContainer.innerHTML = '';
+
+                // Create a row for each part
+                parts.forEach(part => {
+                    const cleanPart = part.trim();
+                    const div = document.createElement('div');
+                    div.className = 'part-input-row';
+                    
+                    // Label (Subject Name)
+                    const label = document.createElement('label');
+                    label.className = 'part-label';
+                    label.innerText = cleanPart;
+                    
+                    // Dropdown (Teacher)
+                    const select = document.createElement('select');
+                    select.className = 'part-teacher-select';
+                    
+                    // Re-populate teacher options
+                    const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+                    select.innerHTML = `<option value="">-- Teacher --</option>` + 
+                        sortedTeachers.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
+                    
+                    div.appendChild(label);
+                    div.appendChild(select);
+                    rowsContainer.appendChild(div);
+                });
+            } else {
+                // Single Subject
+                container.style.display = 'block';
+                rowsContainer.innerHTML = '';
+                
+                const div = document.createElement('div');
+                div.className = 'part-input-row';
+                
+                const label = document.createElement('label');
+                label.className = 'part-label';
+                label.innerText = subjectName;
+                
+                const select = document.createElement('select');
+                select.className = 'part-teacher-select';
+                const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+                select.innerHTML = `<option value="">-- Teacher --</option>` + 
+                    sortedTeachers.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
+                
+                div.appendChild(label);
+                div.appendChild(select);
+                rowsContainer.appendChild(div);
+            }
         }
 
         function addToSlot() {
-            const sId = document.getElementById('modalSubject').value;
-            const tId = document.getElementById('modalTeacher').value;
-            if(sId && tId) {
-                tempSlotItems.push({ subjectId: parseInt(sId), teacherId: parseInt(tId) });
-                renderComboList();
-            }
+            const subjectName = document.getElementById('modalSubject').value;
+            if(!subjectName) return;
+
+            // Iterate over the generated rows
+            const rows = document.getElementById('teacherRows').querySelectorAll('.part-input-row');
+            
+            rows.forEach(row => {
+                const partName = row.querySelector('.part-label').innerText;
+                const teacherId = row.querySelector('select').value;
+                
+                if(teacherId) {
+                    tempSlotItems.push({ 
+                        subjectName: partName, // Use the specific part (e.g., "PHY")
+                        teacherId: parseInt(teacherId),
+                        isActivity: false
+                    });
+                }
+            });
+
+            // Clear inputs after adding
+            document.getElementById('modalSubject').value = "";
+            document.getElementById('teacherInputsContainer').style.display = 'none';
+            document.getElementById('teacherRows').innerHTML = "";
+            
+            renderComboList();
         }
 
         function removeFromSlot(index) {
@@ -809,41 +916,38 @@
         function renderComboList() {
             const list = document.getElementById('comboList');
             if(tempSlotItems.length === 0) {
-                list.innerHTML = `<div style="text-align:center; color:#999; padding:10px;">No lessons added</div>`;
+                list.innerHTML = `<div style="text-align:center; color:#999; padding:10px;">Empty slot</div>`;
                 return;
             }
             list.innerHTML = tempSlotItems.map((item, index) => {
-                const subj = appState.subjects.find(s => s.id == item.subjectId);
                 const teach = appState.teachers.find(t => t.id == item.teacherId);
+                const teachName = teach ? `(${teach.number})` : '(?)';
                 return `
                     <div class="combo-item">
-                        <span><b>${subj.name}</b> (${teach.number})</span>
-                        <div>
-                            <span class="edit-combo" onclick="editSlotItem(${index})">✏️</span>
-                            <span class="remove-combo" onclick="removeFromSlot(${index})">&times;</span>
-                        </div>
+                        <span><b>${item.subjectName}</b> ${teachName}</span>
+                        <span class="remove-combo" onclick="removeFromSlot(${index})">&times;</span>
                     </div>`;
             }).join('');
         }
 
-        // Edit an item inside the modal list
-        function editSlotItem(index) {
-            const item = tempSlotItems[index];
-            document.getElementById('modalSubject').value = item.subjectId;
-            document.getElementById('modalTeacher').value = item.teacherId;
-            // Remove it temporarily to allow updating (simple UX pattern)
-            tempSlotItems.splice(index, 1); 
-            renderComboList();
-        }
-
         function saveSlot() {
-            const sId = document.getElementById('modalSubject').value;
-            const tId = document.getElementById('modalTeacher').value;
-            // If fields are filled, add remaining item
-            if(sId && tId) {
-                tempSlotItems.push({ subjectId: parseInt(sId), teacherId: parseInt(tId) });
+            // Add any pending inputs first just in case
+            const subjectName = document.getElementById('modalSubject').value;
+            if(subjectName) {
+                const rows = document.getElementById('teacherRows').querySelectorAll('.part-input-row');
+                rows.forEach(row => {
+                    const partName = row.querySelector('.part-label').innerText;
+                    const teacherId = row.querySelector('select').value;
+                    if(teacherId) {
+                        tempSlotItems.push({ 
+                            subjectName: partName,
+                            teacherId: parseInt(teacherId),
+                            isActivity: false
+                        });
+                    }
+                });
             }
-            
+
             const key = `${currentEdit.day}-${currentEdit.stream}-${currentEdit.idx}`;
             appState.schedule[key] = [...tempSlotItems];
             saveState();
@@ -873,7 +977,8 @@
                                 for(let k=0; k<count; k++) {
                                     const rSubj = appState.subjects[Math.floor(Math.random() * appState.subjects.length)];
                                     const rTeach = appState.teachers[Math.floor(Math.random() * appState.teachers.length)];
-                                    items.push({ subjectId: rSubj.id, teacherId: rTeach.id });
+                                    // For randomizer, just use the full name
+                                    items.push({ subjectName: rSubj.name, teacherId: rTeach.id, isActivity: false });
                                 }
                                 appState.schedule[`${day}-${stream}-${idx}`] = items;
                             }
@@ -904,14 +1009,11 @@
             const num = document.getElementById('newTeacherNum').value;
             const name = document.getElementById('newTeacher').value;
             const id = document.getElementById('editTeacherId').value;
-
             if(name) { 
                 if(id) {
-                    // Update
                     const teacher = appState.teachers.find(t => t.id == id);
                     if(teacher) { teacher.number = num || "?"; teacher.name = name; }
                 } else {
-                    // Add
                     appState.teachers.push({id: Date.now(), name, number: num || "?"}); 
                 }
                 resetTeacherForm();
@@ -1034,14 +1136,19 @@
             if(confirm("RESET EVERYTHING to default Combinations?")) { 
                 appState = {
                     schoolName: "KENYA HIGH SCHOOL",
-                    poBox: "12345 NAIROBI",
+                    poBox: "12345",
                     term: "TERM 1",
                     teachers: [
-                        {id: 1, name: "Teacher 1", number: "1"},
-                        {id: 2, name: "Teacher 2", number: "2"},
-                        {id: 3, name: "Teacher 3", number: "3"},
-                        {id: 4, name: "Teacher 4", number: "4"},
-                        {id: 5, name: "Teacher 5", number: "5"}
+                        {id: 1, name: "Mr. Phy", number: "1"},
+                        {id: 2, name: "Mr. Bio", number: "2"},
+                        {id: 3, name: "Mr. Geo", number: "3"},
+                        {id: 4, name: "Mr. Hist", number: "4"},
+                        {id: 5, name: "Mrs. Agri", number: "5"},
+                        {id: 6, name: "Mr. Comp", number: "6"},
+                        {id: 7, name: "Mr. Lit", number: "7"},
+                        {id: 8, name: "Mrs. Kisw", number: "8"},
+                        {id: 9, name: "Mr. Math", number: "9"},
+                        {id: 10, name: "Mr. Eng", number: "10"}
                     ],
                     subjects: [
                         {id: 101, name: "PHY/BIO"},
