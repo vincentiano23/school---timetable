@@ -245,6 +245,15 @@
         .slot-subject { font-weight: 700; color: var(--primary-dark); }
         .slot-teacher { color: var(--text-light); font-size: 0.7rem; }
         
+        /* Break Styles in Editor */
+        .break-editor {
+            background-color: #e2e8f0;
+            color: #64748b;
+            font-weight: bold;
+            font-style: italic;
+            letter-spacing: 1px;
+        }
+
         .slot-cell.activity { background-color: #fffbeb; font-style: italic; font-weight: bold; color: #b45309; display: flex; align-items: center; justify-content: center; height: 100%; }
 
         /* --- LIST ITEMS (Settings) --- */
@@ -263,36 +272,69 @@
         .list-actions { display: flex; gap: 5px; flex-shrink: 0;}
         .list-actions button { padding: 4px 8px; font-size: 0.7rem; }
 
-        /* --- PRINT OPTIMIZATION --- */
+        /* --- PRINT OPTIMIZATION (Stream Layout) --- */
         @media print {
-            @page { size: A4 landscape; margin: 0.3cm; }
+            @page { size: A4 landscape; margin: 0.5cm; }
             aside, .view-section:not(#print-view), .toolbar, .mobile-menu-btn, .mobile-nav-bar, .no-print { display: none !important; }
             body, main { height: auto; overflow: visible; background: white; margin: 0; padding: 0; display: block; }
             #print-view-container { display: block !important; background: white; padding: 0; }
-            .print-paper { box-shadow: none; padding: 0; margin: 0; width: 100%; }
             
-            .print-table { width: 100%; font-size: 8pt; table-layout: fixed; border-collapse: collapse; margin-bottom: 10px; }
-            .print-table th, .print-table td { border: 1px solid black; padding: 2px 3px; font-family: 'Arial', sans-serif; overflow: hidden; white-space: nowrap; }
-            .print-col-day { width: 30px; }
-            .print-col-stream { width: 60px; }
-            .print-col-time { width: 60px; }
-            .print-col-activity { width: 65px; }
+            .print-header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
+            .print-header h1 { margin: 0; font-size: 14pt; text-transform: uppercase; }
+            .print-header p { margin: 2px 0 0 0; font-size: 10pt; }
 
-            td.day-cell { background-color: #ccc !important; -webkit-print-color-adjust: exact; color: black !important; border: 1px solid black; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 7pt; }
-            td.stream-cell { background-color: #eee !important; -webkit-print-color-adjust: exact; font-weight: bold; font-size: 8pt; }
+            /* Flex container for side-by-side tables */
+            .print-row { display: flex; gap: 10px; justify-content: space-between; page-break-inside: avoid; }
             
-            /* Single Global Header */
-            .global-header { text-align: center; margin-bottom: 20px; border-bottom: 3px double black; padding-bottom: 10px; }
-            .global-header h1 { margin: 0; text-transform: uppercase; font-size: 16pt; font-weight: bold; }
-            .global-header p { margin: 5px 0 0 0; font-size: 11pt; }
+            .stream-table {
+                width: 49%; /* Two per row */
+                border-collapse: collapse;
+                margin-bottom: 10px;
+                font-size: 7.5pt;
+            }
+            
+            .stream-table th, .stream-table td {
+                border: 1px solid #000;
+                padding: 2px;
+                text-align: center;
+                vertical-align: middle;
+            }
 
-            .legend-container { margin-top: 20px; border-top: 2px solid black; padding-top: 10px; font-size: 8pt; display: flex; flex-wrap: wrap; gap: 10px; }
-            .legend-item { margin-right: 15px; font-weight: bold; }
+            .stream-title {
+                background-color: #eee;
+                font-weight: bold;
+                padding: 4px;
+                text-align: center;
+                border: 1px solid #000;
+            }
+
+            .time-col { width: 60px; background-color: #f9f9f9; font-size: 7pt; }
+            .day-col { width: auto; }
+            
+            .break-print { background-color: #e0e0e0 !important; font-weight: bold; color: #333; font-style: italic; font-size: 7pt; }
+            
+            .legend-box {
+                margin-top: 10px; 
+                border: 1px solid #000; 
+                padding: 5px; 
+                font-size: 7pt;
+                display: flex; 
+                justify-content: center;
+                gap: 20px;
+            }
         }
 
         /* --- SCREEN PRINT PREVIEW --- */
         #print-view-container { padding: 20px; background: #cbd5e1; height: 100%; overflow-y: auto; display: flex; justify-content: center; }
-        .print-paper { background: white; width: 100%; max-width: 1200px; padding: 15px; box-shadow: var(--shadow-2xl); margin-bottom: 40px; }
+        .print-paper { 
+            background: white; 
+            width: 100%; 
+            max-width: 1200px; /* Landscape approx */
+            padding: 15px; 
+            box-shadow: var(--shadow-2xl); 
+            margin-bottom: 40px; 
+            box-sizing: border-box;
+        }
 
         /* --- MODAL --- */
         .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.6); justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(4px); }
@@ -584,7 +626,8 @@
         ];
         const streams = ["10 STEM", "10 S.S", "FORM 3", "FORM 4"];
         
-        const breakConfig = { 2: "B", 5: "R", 8: "LUNCH" };
+        // Updated Config for full words
+        const breakConfig = { 2: "BREAK", 5: "RECESS", 8: "LUNCH" };
         const gamesConfig = {
             "MONDAY": "GAMES", "TUESDAY": "GAMES", "WEDNESDAY": "CLUBS", 
             "THURSDAY": "GAMES", "FRIDAY": "SOCIETIES"
@@ -604,10 +647,10 @@
         let tempSlotItems = [];
 
         function init() {
-            const saved = localStorage.getItem('schoolPlanner_v14');
+            const saved = localStorage.getItem('schoolPlanner_v15');
             if (saved) {
                 appState = JSON.parse(saved);
-                // Migration: Ensure teachers arrays exist on subjects
+                // Migration: Ensure teachers arrays exist
                 appState.subjects = appState.subjects.map(s => ({...s, teachers: s.teachers || []}));
             } else {
                 factoryReset();
@@ -623,7 +666,7 @@
         }
 
         function saveState() {
-            localStorage.setItem('schoolPlanner_v14', JSON.stringify(appState));
+            localStorage.setItem('schoolPlanner_v15', JSON.stringify(appState));
         }
 
         function updateHeaderState() {
@@ -667,7 +710,7 @@
             if(viewId === 'print-view') renderPrintView();
         }
 
-        // --- RENDER EDITOR ---
+        // --- RENDER EDITOR (Unchanged - Day Based) ---
         function renderEditor() {
             const container = document.getElementById('editor-table-wrapper');
             let html = `<table><thead><tr><th style="width:35px;">DAY</th><th style="width:90px;">STREAM</th>`;
@@ -687,7 +730,7 @@
                         let cellClass = "slot-cell";
                         
                         if (breakConfig[slotIndex]) {
-                            cellContent = `<span style="font-weight:bold; color:#666;">${breakConfig[slotIndex]}</span>`;
+                            cellContent = `<span class="break-editor">${breakConfig[slotIndex]}</span>`;
                             cellClass += " break-cell";
                         }
                         else if (items.length > 0) {
@@ -724,70 +767,87 @@
             container.innerHTML = html;
         }
 
-        // --- RENDER PRINT VIEW (HTML Preview) ---
+        // --- RENDER PRINT VIEW (New - Stream Based Layout) ---
         function renderPrintView() {
             const container = document.getElementById('print-paper-content');
             let html = "";
 
-            html += `<div class="global-header">`;
+            html += `<div class="print-header">`;
             html += `<h1>${appState.schoolName}</h1>`;
             html += `<p>${appState.poBox} | ${appState.term}</p>`;
             html += `</div>`;
 
-            days.forEach(day => {
-                html += `<table class="print-table" style="page-break-inside: avoid;">`;
-                html += `<thead><tr>`;
-                html += `<th style="width:30px;"></th>`;
-                html += `<th style="width:60px;">STREAM</th>`;
-                timeSlots.forEach(t => html += `<th class="print-col-time">${t}</th>`);
-                html += `</tr></thead><tbody>`;
+            // Render Rows of Streams (2 streams per row)
+            for (let i = 0; i < streams.length; i += 2) {
+                html += `<div class="print-row">`;
+                
+                // Render First Stream in row
+                html += renderStreamTable(streams[i]);
 
-                streams.forEach((stream, streamIndex) => {
-                    html += `<tr>`;
-                    if(streamIndex === 0) {
-                        html += `<td rowspan="${streams.length}" class="print-col-day day-cell">${day}</td>`;
-                    }
-                    html += `<td class="print-col-stream stream-cell">${stream}</td>`;
+                // Render Second Stream in row (if exists)
+                if (i + 1 < streams.length) {
+                    html += renderStreamTable(streams[i + 1]);
+                }
 
-                    timeSlots.forEach((slot, slotIndex) => {
-                        const key = `${day}-${stream}-${slotIndex}`;
-                        const items = appState.schedule[key] || [];
-                        let content = "";
-                        
-                        if (breakConfig[slotIndex]) {
-                            content = `<strong>${breakConfig[slotIndex]}</strong>`;
-                        } else if (items.length > 0) {
-                            items.forEach(item => {
-                                if(item.isActivity) {
-                                    content = `<span style="font-weight:bold;">${item.text}</span>`;
-                                } else {
-                                    const teach = appState.teachers.find(t => t.id == item.teacherId);
-                                    if(teach) {
-                                        content += `${item.subjectName}(${teach.number})<br>`;
-                                    }
-                                }
-                            });
-                        }
-                        
-                        const colClass = (slotIndex === 12) ? "print-col-activity" : "";
-                        html += `<td class="${colClass}">${content}</td>`;
-                    });
-                    html += `</tr>`;
-                });
+                html += `</div>`;
+            }
 
-                html += `</tbody></table>`;
-            });
-
-            html += `<div class="legend-container">`;
-            html += `<strong>TEACHER KEY:</strong><br>`;
+            // Legend
+            html += `<div class="legend-box">`;
+            html += `<strong>TEACHER KEY:</strong> `;
             const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
-            sortedTeachers.forEach(t => { html += `<span class="legend-item">[${t.number}] ${t.name}</span>`; });
+            sortedTeachers.forEach(t => { html += `[${t.number}] ${t.name} `; });
             html += `</div>`;
 
             container.innerHTML = html;
         }
 
-        // --- PDF GENERATION ---
+        function renderStreamTable(streamName) {
+            let html = `<table class="stream-table"><thead>`;
+            // Header: Stream Name
+            html += `<tr><th colspan="6" class="stream-title">${streamName}</th></tr>`;
+            // Header: Days
+            html += `<tr><th class="time-col">TIME</th><th class="day-col">MON</th><th class="day-col">TUE</th><th class="day-col">WED</th><th class="day-col">THU</th><th class="day-col">FRI</th></tr></thead><tbody>`;
+            
+            // Rows: Time Slots
+            timeSlots.forEach((slot, slotIndex) => {
+                html += `<tr>`;
+                html += `<td class="time-col">${slot}</td>`; // Time
+                
+                // Loop Days for this specific time slot
+                days.forEach(day => {
+                    const key = `${day}-${streamName}-${slotIndex}`;
+                    const items = appState.schedule[key] || [];
+                    let content = "";
+                    let isBreak = false;
+
+                    if (breakConfig[slotIndex]) {
+                        content = breakConfig[slotIndex];
+                        isBreak = true;
+                    } else if (items.length > 0) {
+                        items.forEach(item => {
+                            if(item.isActivity) {
+                                content += item.text + " ";
+                            } else {
+                                const teach = appState.teachers.find(t => t.id == item.teacherId);
+                                if(teach) {
+                                    content += `${item.subjectName}(${teach.number})<br>`;
+                                }
+                            }
+                        });
+                    }
+                    
+                    const styleClass = isBreak ? "break-print" : "";
+                    html += `<td class="${styleClass}">${content}</td>`;
+                });
+                html += `</tr>`;
+            });
+
+            html += `</tbody></table>`;
+            return html;
+        }
+
+        // --- PDF GENERATION (New - Stream Based Layout) ---
         function generatePDFDoc() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -795,84 +855,43 @@
             // Global Header
             doc.setFontSize(18);
             doc.setFont("helvetica", "bold");
-            doc.text(appState.schoolName.toUpperCase(), 14, 15);
+            doc.text(appState.schoolName.toUpperCase(), 14, 12);
             
             doc.setFontSize(11);
             doc.setFont("helvetica", "normal");
-            doc.text(`${appState.poBox} | ${appState.term}`, 14, 22);
+            doc.text(`${appState.poBox} | ${appState.term}`, 14, 18);
 
-            let startY = 30;
+            let startY = 25;
 
-            days.forEach(day => {
-                const tableBody = [];
-                
-                streams.forEach(stream => {
-                    const row = [day, stream]; 
-                    timeSlots.forEach((slot, idx) => {
-                        const key = `${day}-${stream}-${idx}`;
-                        const items = appState.schedule[key] || [];
-                        let cellText = "";
+            // Render Streams (2 per row)
+            for (let i = 0; i < streams.length; i += 2) {
+                const stream1 = streams[i];
+                const stream2 = (i + 1 < streams.length) ? streams[i + 1] : null;
 
-                        if(breakConfig[idx]) {
-                            cellText = breakConfig[idx];
-                        } else if (items.length > 0) {
-                            items.forEach(item => {
-                                if(item.isActivity) {
-                                    cellText += item.text + " ";
-                                } else {
-                                    const teach = appState.teachers.find(t => t.id == item.teacherId);
-                                    const tNum = teach ? teach.number : "?";
-                                    cellText += `${item.subjectName}(${tNum}) `;
-                                }
-                            });
-                        }
-                        row.push(cellText);
-                    });
-                    tableBody.push(row);
-                });
-
-                const tableHead = [['DAY', 'STREAM', ...timeSlots]];
-
-                doc.autoTable({
-                    head: tableHead,
-                    body: tableBody,
-                    startY: startY,
-                    theme: 'grid',
-                    styles: { fontSize: 7, cellPadding: 1.5, fontStyle: 'normal' },
-                    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                    columnStyles: {
-                        0: { cellWidth: 8, rowSpan: 4 }, 
-                        1: { cellWidth: 20 }, 
-                    },
-                    didParseCell: function(data) {
-                        if(data.section === 'head' && data.column.index === 0) {
-                            data.cell.styles.halign = 'center';
-                        }
-                    },
-                    willDrawCell: function(data) {
-                        if (data.row.index % 4 === 0 && data.column.index === 0) {
-                            doc.setFillColor(37, 99, 235);
-                            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                            doc.setTextColor(255);
-                        }
-                    }
-                });
-
-                startY = doc.lastAutoTable.finalY + 10;
-
-                if (startY > 180) {
+                // Check if we need a new page
+                if (startY > 140) { // Approx limit for 2 tables
                     doc.addPage();
                     startY = 20;
                 }
-            });
+
+                // Table 1
+                startY = renderStreamPDF(doc, stream1, 14, startY);
+
+                // Table 2 (Side by side)
+                if (stream2) {
+                    renderStreamPDF(doc, stream2, 155, startY - (doc.lastAutoTable ? doc.lastAutoTable.finalY - startY : 0)); // Adjust Y to match table 1 height
+                }
+
+                startY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : startY) + 15;
+            }
 
             // Legend
-            doc.setFontSize(10);
+            doc.setFontSize(9);
             doc.setFont("helvetica", "bold");
-            doc.text("TEACHER KEY:", 14, startY);
+            doc.text("TEACHER KEY:", 14, startY + 5);
             
             let legendX = 14;
-            let legendY = startY + 6;
+            let legendY = startY + 10;
             const maxWidth = 280;
             
             const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
@@ -896,6 +915,71 @@
 
             return doc;
         }
+
+        function renderStreamPDF(doc, streamName, x, y) {
+            const tableBody = [];
+            
+            timeSlots.forEach((slot, idx) => {
+                const row = [slot]; // Start with time
+                days.forEach(day => {
+                    const key = `${day}-${streamName}-${idx}`;
+                    const items = appState.schedule[key] || [];
+                    let cellText = "";
+
+                    if(breakConfig[idx]) {
+                        cellText = breakConfig[idx];
+                    } else if (items.length > 0) {
+                        items.forEach(item => {
+                            if(item.isActivity) {
+                                cellText += item.text + " ";
+                            } else {
+                                const teach = appState.teachers.find(t => t.id == item.teacherId);
+                                const tNum = teach ? teach.number : "?";
+                                cellText += `${item.subjectName}(${tNum}) `;
+                            }
+                        });
+                    }
+                    row.push(cellText);
+                });
+                tableBody.push(row);
+            });
+
+            const tableHead = [['TIME', 'MON', 'TUE', 'WED', 'THU', 'FRI']];
+
+            doc.autoTable({
+                head: [[{ content: streamName, colSpan: 6, styles: { halign: 'center', fillColor: [37, 99, 235], textColor: 255 } }]],
+                body: [tableHead, ...tableBody], // Inject Header row into body structure for custom styling or keep separate?
+                // Actually, autoTable head expects array of arrays. Let's keep it simple.
+                startY: y,
+                startX: x,
+                theme: 'grid',
+                styles: { fontSize: 7, cellPadding: 1, fontStyle: 'normal' },
+                headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                columnStyles: {
+                    0: { cellWidth: 18, fontStyle: 'bold' }, // Time
+                },
+                // We want the stream name as a header, but we also want Day headers.
+                // Trick: Put Stream Name in a separate header row, then Day headers.
+                head: [
+                    [{ content: streamName, colSpan: 6, styles: { halign: 'center', fillColor: [200, 200, 200], textColor: 0, fontStyle: 'bold' } }],
+                    ['TIME', 'MON', 'TUE', 'WED', 'THU', 'FRI']
+                ],
+                didParseCell: function(data) {
+                    // Style Breaks specifically
+                    if (data.section === 'body' && data.row.index > 0) { // Skip header rows
+                        const rawContent = data.cell.raw;
+                        if (rawContent === "BREAK" || rawContent === "RECESS" || rawContent === "LUNCH") {
+                            data.cell.styles.fillColor = [240, 240, 240];
+                            data.cell.styles.fontStyle = 'bold';
+                            data.cell.styles.textColor = [80, 80, 80];
+                        }
+                    }
+                }
+            });
+
+            return doc.lastAutoTable.finalY;
+        }
+
 
         function downloadPDF() {
             const doc = generatePDFDoc();
@@ -996,7 +1080,6 @@
                 appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
         }
 
-        // --- KEY FUNCTION: Setup Teacher Inputs based on Combo ---
         function setupTeacherInputs() {
             const subjectName = document.getElementById('modalSubject').value;
             const container = document.getElementById('teacherInputsContainer');
@@ -1010,11 +1093,9 @@
             container.style.display = 'block';
             rowsContainer.innerHTML = '';
 
-            // Find subject object to see if it has pre-assigned teachers
             const subjectObj = appState.subjects.find(s => s.name.trim() === subjectName.trim());
             const assignedTeacherIds = subjectObj ? subjectObj.teachers : [];
 
-            // Check for combination
             const parts = subjectName.includes('/') ? subjectName.split('/') : [subjectName];
             
             parts.forEach((part, index) => {
@@ -1022,21 +1103,17 @@
                 const div = document.createElement('div');
                 div.className = 'part-input-row';
                 
-                // Label (Subject Name)
                 const label = document.createElement('label');
                 label.className = 'part-label';
                 label.innerText = cleanPart;
                 
-                // Dropdown (Teacher)
                 const select = document.createElement('select');
                 select.className = 'part-teacher-select';
                 
-                // Populate Teachers
                 const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
                 select.innerHTML = `<option value="">-- Select Teacher --</option>` + 
                     sortedTeachers.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
                 
-                // Pre-fill logic
                 const prefillId = assignedTeacherIds[index] || assignedTeacherIds[0]; 
                 if(prefillId) select.value = prefillId;
                 
@@ -1075,7 +1152,6 @@
                 return;
             }
 
-            // Clear inputs after adding
             document.getElementById('modalSubject').value = "";
             document.getElementById('teacherInputsContainer').style.display = 'none';
             document.getElementById('teacherRows').innerHTML = "";
@@ -1229,7 +1305,7 @@
                 </li>`).join('');
         }
 
-        // --- CRUD SUBJECTS (With Teacher Assignment) ---
+        // --- CRUD SUBJECTS ---
         function renderSubjectTeacherOptions() {
             const select = document.getElementById('subjectTeachers');
             const sorted = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
