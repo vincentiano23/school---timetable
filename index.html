@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kenya School Timetable Pro</title>
-    <!-- PDF Generation Libraries (Text-based, not Image-based) -->
+    <!-- PDF Generation Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     <style>
@@ -303,31 +303,33 @@
         .combo-item { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #eee; font-size: 0.9rem; }
         .combo-item:last-child { border-bottom: none; }
         .remove-combo { color: var(--danger); cursor: pointer; font-weight: bold; font-size: 1.1rem; margin-left: 10px;}
-        .edit-combo { color: var(--primary); cursor: pointer; font-weight: bold; margin-left: 10px;}
 
         /* Dynamic Teacher Inputs */
         .part-input-row {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 8px;
-            background: #f0f9ff;
-            padding: 8px;
-            border-radius: 6px;
-            border: 1px dashed var(--primary);
+            margin-bottom: 10px;
+            background: #eff6ff;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--primary);
         }
         .part-label {
-            width: 100px;
-            font-weight: bold;
-            font-size: 0.85rem;
+            min-width: 80px;
+            font-weight: 800;
+            font-size: 1rem;
             color: var(--primary-dark);
+            text-align: left;
         }
         .part-teacher-select {
             flex: 1;
-            padding: 6px;
+            padding: 8px;
             border: 1px solid #ccc;
-            border-radius: 4px;
+            border-radius: 6px;
             font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
         }
 
         .settings-card { background: white; padding: 25px; max-width: 700px; margin: 20px auto; border-radius: var(--radius); box-shadow: var(--shadow-md); border: 1px solid var(--border); }
@@ -392,6 +394,7 @@
             td.slot-cell { font-size: 0.75rem; }
             .settings-grid { grid-template-columns: 1fr; }
             .modal-content { width: 95%; padding: 20px; }
+            .part-label { min-width: 60px; font-size: 0.9rem; }
         }
     </style>
 </head>
@@ -498,7 +501,7 @@
 
                         <!-- Teacher Assigner for Subject -->
                         <div style="margin-bottom: 10px;">
-                            <label class="multi-select-label">Assign Teachers to this Subject:</label>
+                            <label class="multi-select-label">Default Teachers:</label>
                             <select id="subjectTeachers" multiple>
                                 <!-- Populated by JS -->
                             </select>
@@ -533,13 +536,14 @@
                 <div style="margin-top:15px;">
                     <label style="display:block; margin-bottom:5px; font-weight:bold; font-size:0.9rem;">Select Subject</label>
                     <select id="modalSubject" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem;" onchange="setupTeacherInputs()">
+                        <option value="">-- Select Subject --</option>
                         <!-- Populated by JS -->
                     </select>
                 </div>
 
                 <!-- Dynamic Area for Teacher Inputs -->
                 <div id="teacherInputsContainer" style="margin-top: 15px; display: none;">
-                    <label style="display:block; margin-bottom:10px; font-weight:bold; font-size:0.9rem;">Assign Teachers per Subject</label>
+                    <label style="display:block; margin-bottom:10px; font-weight:bold; font-size:0.9rem; color:var(--primary-dark);">Assign Teacher to each part:</label>
                     <div id="teacherRows">
                         <!-- Inputs injected here -->
                     </div>
@@ -600,10 +604,10 @@
         let tempSlotItems = [];
 
         function init() {
-            const saved = localStorage.getItem('schoolPlanner_v13');
+            const saved = localStorage.getItem('schoolPlanner_v14');
             if (saved) {
                 appState = JSON.parse(saved);
-                // Migration: Ensure teachers arrays exist on subjects if upgrading from old version
+                // Migration: Ensure teachers arrays exist on subjects
                 appState.subjects = appState.subjects.map(s => ({...s, teachers: s.teachers || []}));
             } else {
                 factoryReset();
@@ -619,7 +623,7 @@
         }
 
         function saveState() {
-            localStorage.setItem('schoolPlanner_v13', JSON.stringify(appState));
+            localStorage.setItem('schoolPlanner_v14', JSON.stringify(appState));
         }
 
         function updateHeaderState() {
@@ -783,7 +787,7 @@
             container.innerHTML = html;
         }
 
-        // --- PDF GENERATION (Vector Text - Editable) ---
+        // --- PDF GENERATION ---
         function generatePDFDoc() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -800,12 +804,10 @@
             let startY = 30;
 
             days.forEach(day => {
-                // Build table data
                 const tableBody = [];
                 
                 streams.forEach(stream => {
-                    const row = [day, stream]; // Start with Day and Stream
-                    // Add time slots
+                    const row = [day, stream]; 
                     timeSlots.forEach((slot, idx) => {
                         const key = `${day}-${stream}-${idx}`;
                         const items = appState.schedule[key] || [];
@@ -829,10 +831,8 @@
                     tableBody.push(row);
                 });
 
-                // Headers for the table
                 const tableHead = [['DAY', 'STREAM', ...timeSlots]];
 
-                // Add table to PDF
                 doc.autoTable({
                     head: tableHead,
                     body: tableBody,
@@ -841,32 +841,25 @@
                     styles: { fontSize: 7, cellPadding: 1.5, fontStyle: 'normal' },
                     headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
                     columnStyles: {
-                        0: { cellWidth: 8, rowSpan: 4 }, // Day column
-                        1: { cellWidth: 20 }, // Stream column
-                        // Time columns auto-size
+                        0: { cellWidth: 8, rowSpan: 4 }, 
+                        1: { cellWidth: 20 }, 
                     },
                     didParseCell: function(data) {
-                        // Rotate Day cells vertical
                         if(data.section === 'head' && data.column.index === 0) {
                             data.cell.styles.halign = 'center';
                         }
                     },
                     willDrawCell: function(data) {
-                        // Fill color for Day cells
                         if (data.row.index % 4 === 0 && data.column.index === 0) {
                             doc.setFillColor(37, 99, 235);
                             doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
                             doc.setTextColor(255);
-                        } else if (data.column.index === 0) {
-                            // Keep rows merged visually (handled by rowSpan in config usually, but here we use cellHeight logic)
-                            // jsPDF autoTable handles content automatically. We just need to ensure the first cell of the 4-row block has the color.
                         }
                     }
                 });
 
                 startY = doc.lastAutoTable.finalY + 10;
 
-                // Page Break check
                 if (startY > 180) {
                     doc.addPage();
                     startY = 20;
@@ -884,7 +877,6 @@
             
             const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
             
-            // Simple word wrap for legend
             let currentLine = "";
             sortedTeachers.forEach(t => {
                 const text = `[${t.number}] ${t.name}  `;
@@ -911,16 +903,13 @@
         }
 
         function downloadTemplate() {
-            // Temporarily clear schedule for template generation
             const originalSchedule = appState.schedule;
             appState.schedule = {};
-            // Fill only breaks and games
             autoFillDefaults();
             
             const doc = generatePDFDoc();
             doc.save(`Template_${appState.schoolName.replace(/\s+/g, '_')}.pdf`);
             
-            // Restore schedule
             appState.schedule = originalSchedule;
         }
 
@@ -1007,7 +996,7 @@
                 appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
         }
 
-        // --- SUBJECT TEACHER LINKING ---
+        // --- KEY FUNCTION: Setup Teacher Inputs based on Combo ---
         function setupTeacherInputs() {
             const subjectName = document.getElementById('modalSubject').value;
             const container = document.getElementById('teacherInputsContainer');
@@ -1022,9 +1011,10 @@
             rowsContainer.innerHTML = '';
 
             // Find subject object to see if it has pre-assigned teachers
-            const subjectObj = appState.subjects.find(s => s.name === subjectName);
+            const subjectObj = appState.subjects.find(s => s.name.trim() === subjectName.trim());
             const assignedTeacherIds = subjectObj ? subjectObj.teachers : [];
 
+            // Check for combination
             const parts = subjectName.includes('/') ? subjectName.split('/') : [subjectName];
             
             parts.forEach((part, index) => {
@@ -1032,18 +1022,21 @@
                 const div = document.createElement('div');
                 div.className = 'part-input-row';
                 
+                // Label (Subject Name)
                 const label = document.createElement('label');
                 label.className = 'part-label';
                 label.innerText = cleanPart;
                 
+                // Dropdown (Teacher)
                 const select = document.createElement('select');
                 select.className = 'part-teacher-select';
                 
+                // Populate Teachers
                 const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
-                select.innerHTML = `<option value="">-- Teacher --</option>` + 
+                select.innerHTML = `<option value="">-- Select Teacher --</option>` + 
                     sortedTeachers.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
                 
-                // Pre-fill teacher if available (simple index match for combos)
+                // Pre-fill logic
                 const prefillId = assignedTeacherIds[index] || assignedTeacherIds[0]; 
                 if(prefillId) select.value = prefillId;
                 
@@ -1055,15 +1048,20 @@
 
         function addToSlot() {
             const subjectName = document.getElementById('modalSubject').value;
-            if(!subjectName) return;
+            if(!subjectName) {
+                alert("Please select a subject first.");
+                return;
+            }
 
             const rows = document.getElementById('teacherRows').querySelectorAll('.part-input-row');
-            
+            let hasTeacher = false;
+
             rows.forEach(row => {
                 const partName = row.querySelector('.part-label').innerText;
                 const teacherId = row.querySelector('select').value;
                 
                 if(teacherId) {
+                    hasTeacher = true;
                     tempSlotItems.push({ 
                         subjectName: partName,
                         teacherId: parseInt(teacherId),
@@ -1072,6 +1070,12 @@
                 }
             });
 
+            if(!hasTeacher) {
+                alert("Please select a teacher for the subject.");
+                return;
+            }
+
+            // Clear inputs after adding
             document.getElementById('modalSubject').value = "";
             document.getElementById('teacherInputsContainer').style.display = 'none';
             document.getElementById('teacherRows').innerHTML = "";
@@ -1236,7 +1240,6 @@
             const name = document.getElementById('newSubject').value;
             const id = document.getElementById('editSubjectId').value;
             
-            // Get selected teachers from multi-select
             const selectedOptions = Array.from(document.getElementById('subjectTeachers').selectedOptions);
             const teacherIds = selectedOptions.map(option => parseInt(option.value));
 
@@ -1268,7 +1271,6 @@
                 document.getElementById('newSubject').value = s.name;
                 document.getElementById('editSubjectId').value = s.id;
                 
-                // Set multi-select values
                 const select = document.getElementById('subjectTeachers');
                 Array.from(select.options).forEach(opt => {
                     opt.selected = s.teachers.includes(parseInt(opt.value));
@@ -1289,7 +1291,6 @@
             document.getElementById('btnAddSubject').style.display = 'inline-block';
             document.getElementById('btnUpdateSubject').style.display = 'none';
             
-            // Clear multi-select
             const select = document.getElementById('subjectTeachers');
             Array.from(select.options).forEach(opt => opt.selected = false);
         }
@@ -1297,7 +1298,6 @@
         function renderSubjectList() {
             const list = document.getElementById('subjectList');
             list.innerHTML = appState.subjects.map(s => {
-                // Find teacher names
                 const assignedNames = (s.teachers || [])
                     .map(tid => {
                         const t = appState.teachers.find(x => x.id == tid);
@@ -1339,7 +1339,7 @@
                         {id: 10, name: "Mr. Eng", number: "10"}
                     ],
                     subjects: [
-                        {id: 101, name: "PHY/BIO", teachers: [1, 2]}, // Example default assignment
+                        {id: 101, name: "PHY/BIO", teachers: [1, 2]}, 
                         {id: 102, name: "GEO/HIST", teachers: [3, 4]},
                         {id: 103, name: "AGRIC/COMP/HOMESCI", teachers: [5, 6]},
                         {id: 104, name: "LIT/FASIHI/BS", teachers: [7, 8]},
