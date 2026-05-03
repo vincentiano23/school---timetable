@@ -272,7 +272,7 @@
         .list-actions { display: flex; gap: 5px; flex-shrink: 0;}
         .list-actions button { padding: 4px 8px; font-size: 0.7rem; }
 
-        /* --- PRINT OPTIMIZATION (Stream Layout) --- */
+        /* --- PRINT OPTIMIZATION (2x2 Grid Layout) --- */
         @media print {
             @page { size: A4 landscape; margin: 0.5cm; }
             aside, .view-section:not(#print-view), .toolbar, .mobile-menu-btn, .mobile-nav-bar, .no-print { display: none !important; }
@@ -283,14 +283,18 @@
             .print-header h1 { margin: 0; font-size: 14pt; text-transform: uppercase; }
             .print-header p { margin: 2px 0 0 0; font-size: 10pt; }
 
-            /* Flex container for side-by-side tables */
-            .print-row { display: flex; gap: 10px; justify-content: space-between; page-break-inside: avoid; }
-            
+            /* CSS Grid for Preview to match PDF Layout */
+            .print-grid-container {
+                display: grid;
+                grid-template-columns: 1fr 1fr; /* 2 Columns */
+                gap: 10px;
+                page-break-inside: avoid;
+            }
+
             .stream-table {
-                width: 49%; /* Two per row */
+                width: 100%;
                 border-collapse: collapse;
-                margin-bottom: 10px;
-                font-size: 7.5pt;
+                font-size: 7pt; /* Small font to fit */
             }
             
             .stream-table th, .stream-table td {
@@ -315,7 +319,7 @@
             
             .legend-box {
                 margin-top: 10px; 
-                border: 1px solid #000; 
+                border:1px solid #000; 
                 padding: 5px; 
                 font-size: 7pt;
                 display: flex; 
@@ -329,7 +333,7 @@
         .print-paper { 
             background: white; 
             width: 100%; 
-            max-width: 1200px; /* Landscape approx */
+            max-width: 1200px; 
             padding: 15px; 
             box-shadow: var(--shadow-2xl); 
             margin-bottom: 40px; 
@@ -437,6 +441,11 @@
             .settings-grid { grid-template-columns: 1fr; }
             .modal-content { width: 95%; padding: 20px; }
             .part-label { min-width: 60px; font-size: 0.9rem; }
+            
+            /* On mobile print preview, stack tables vertically so they are readable */
+            .print-grid-container {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -626,8 +635,8 @@
         ];
         const streams = ["10 STEM", "10 S.S", "FORM 3", "FORM 4"];
         
-        // Updated Config for full words
-        const breakConfig = { 2: "BREAK", 5: "RECESS", 8: "LUNCH" };
+        // Updated Break Config
+        const breakConfig = { 2: "SHORT BREAK", 5: "LONG BREAK", 8: "LUNCH" };
         const gamesConfig = {
             "MONDAY": "GAMES", "TUESDAY": "GAMES", "WEDNESDAY": "CLUBS", 
             "THURSDAY": "GAMES", "FRIDAY": "SOCIETIES"
@@ -647,7 +656,7 @@
         let tempSlotItems = [];
 
         function init() {
-            const saved = localStorage.getItem('schoolPlanner_v15');
+            const saved = localStorage.getItem('schoolPlanner_v16');
             if (saved) {
                 appState = JSON.parse(saved);
                 // Migration: Ensure teachers arrays exist
@@ -666,7 +675,7 @@
         }
 
         function saveState() {
-            localStorage.setItem('schoolPlanner_v15', JSON.stringify(appState));
+            localStorage.setItem('schoolPlanner_v16', JSON.stringify(appState));
         }
 
         function updateHeaderState() {
@@ -690,7 +699,7 @@
             const current = document.querySelector('.view-section.active').id;
             let index = views.indexOf(current);
             let nextIndex = index + direction;
-            if (nextIndex < 0) nextIndex = views.length - 1;
+            if (nextIndex < 0) nextIndex = views.length -1;
             if (nextIndex >= views.length) nextIndex = 0;
             showView(views[nextIndex]);
         }
@@ -710,7 +719,7 @@
             if(viewId === 'print-view') renderPrintView();
         }
 
-        // --- RENDER EDITOR (Unchanged - Day Based) ---
+        // --- RENDER EDITOR (Day Based) ---
         function renderEditor() {
             const container = document.getElementById('editor-table-wrapper');
             let html = `<table><thead><tr><th style="width:35px;">DAY</th><th style="width:90px;">STREAM</th>`;
@@ -767,7 +776,7 @@
             container.innerHTML = html;
         }
 
-        // --- RENDER PRINT VIEW (New - Stream Based Layout) ---
+        // --- RENDER PRINT VIEW (New 2x2 Grid Layout) ---
         function renderPrintView() {
             const container = document.getElementById('print-paper-content');
             let html = "";
@@ -777,20 +786,14 @@
             html += `<p>${appState.poBox} | ${appState.term}</p>`;
             html += `</div>`;
 
-            // Render Rows of Streams (2 streams per row)
-            for (let i = 0; i < streams.length; i += 2) {
-                html += `<div class="print-row">`;
-                
-                // Render First Stream in row
-                html += renderStreamTable(streams[i]);
+            // 2x2 Grid Container
+            html += `<div class="print-grid-container">`;
+            
+            streams.forEach(stream => {
+                html += renderStreamTableHTML(stream);
+            });
 
-                // Render Second Stream in row (if exists)
-                if (i + 1 < streams.length) {
-                    html += renderStreamTable(streams[i + 1]);
-                }
-
-                html += `</div>`;
-            }
+            html += `</div>`; // End Grid
 
             // Legend
             html += `<div class="legend-box">`;
@@ -802,19 +805,15 @@
             container.innerHTML = html;
         }
 
-        function renderStreamTable(streamName) {
+        function renderStreamTableHTML(streamName) {
             let html = `<table class="stream-table"><thead>`;
-            // Header: Stream Name
             html += `<tr><th colspan="6" class="stream-title">${streamName}</th></tr>`;
-            // Header: Days
             html += `<tr><th class="time-col">TIME</th><th class="day-col">MON</th><th class="day-col">TUE</th><th class="day-col">WED</th><th class="day-col">THU</th><th class="day-col">FRI</th></tr></thead><tbody>`;
             
-            // Rows: Time Slots
             timeSlots.forEach((slot, slotIndex) => {
                 html += `<tr>`;
-                html += `<td class="time-col">${slot}</td>`; // Time
+                html += `<td class="time-col">${slot}</td>`;
                 
-                // Loop Days for this specific time slot
                 days.forEach(day => {
                     const key = `${day}-${streamName}-${slotIndex}`;
                     const items = appState.schedule[key] || [];
@@ -847,51 +846,60 @@
             return html;
         }
 
-        // --- PDF GENERATION (New - Stream Based Layout) ---
+        // --- PDF GENERATION (New Robust 2x2 Grid Logic) ---
         function generatePDFDoc() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
             
             // Global Header
-            doc.setFontSize(18);
+            doc.setFontSize(16);
             doc.setFont("helvetica", "bold");
-            doc.text(appState.schoolName.toUpperCase(), 14, 12);
+            doc.text(appState.schoolName.toUpperCase(), 14, 10);
             
-            doc.setFontSize(11);
+            doc.setFontSize(10);
             doc.setFont("helvetica", "normal");
-            doc.text(`${appState.poBox} | ${appState.term}`, 14, 18);
+            doc.text(`${appState.poBox} | ${appState.term}`, 14, 15);
 
-            let startY = 25;
+            let startY = 22;
+            const col1X = 10;
+            const col2X = 155; // 50% width
 
-            // Render Streams (2 per row)
-            for (let i = 0; i < streams.length; i += 2) {
-                const stream1 = streams[i];
-                const stream2 = (i + 1 < streams.length) ? streams[i + 1] : null;
+            // --- ROW 1: Streams 0 and 1 ---
+            const h1 = renderStreamPDF(doc, streams[0], col1X, startY);
+            const h2 = renderStreamPDF(doc, streams[1], col2X, startY);
 
-                // Check if we need a new page
-                if (startY > 140) { // Approx limit for 2 tables
-                    doc.addPage();
-                    startY = 20;
-                }
+            // Calculate max height of Row 1 to align Row 2
+            const row1Height = Math.max(h1, h2);
+            let nextRowStart = startY + row1Height + 15; // +15mm gap
 
-                // Table 1
-                startY = renderStreamPDF(doc, stream1, 14, startY);
-
-                // Table 2 (Side by side)
-                if (stream2) {
-                    renderStreamPDF(doc, stream2, 155, startY - (doc.lastAutoTable ? doc.lastAutoTable.finalY - startY : 0)); // Adjust Y to match table 1 height
-                }
-
-                startY = (doc.lastAutoTable ? doc.lastAutoTable.finalY : startY) + 15;
+            // Check if Row 2 fits on Page 1 (Limit approx 200mm from top)
+            if (nextRowStart > 190) {
+                doc.addPage();
+                nextRowStart = 22;
             }
 
-            // Legend
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "bold");
-            doc.text("TEACHER KEY:", 14, startY + 5);
+            // --- ROW 2: Streams 2 and 3 ---
+            const h3 = renderStreamPDF(doc, streams[2], col1X, nextRowStart);
+            const h4 = renderStreamPDF(doc, streams[3], col2X, nextRowStart);
+
+            // Legend Position
+            const row2Height = Math.max(h3, h4);
+            const legendY = nextRowStart + row2Height + 10;
+
+            // Check if Legend fits
+            if (legendY > 190) {
+                doc.addPage();
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "normal");
+                doc.text("TEACHER KEY:", 14, 25);
+            } else {
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.text("TEACHER KEY:", 14, legendY + 5);
+            }
             
             let legendX = 14;
-            let legendY = startY + 10;
+            let legendYPos = legendY > 190 ? 30 : legendY + 10;
             const maxWidth = 280;
             
             const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
@@ -901,8 +909,8 @@
                 const text = `[${t.number}] ${t.name}  `;
                 if (doc.getTextWidth(currentLine + text) > maxWidth) {
                     doc.setFont("helvetica", "normal");
-                    doc.text(currentLine, legendX, legendY);
-                    legendY += 5;
+                    doc.text(currentLine, legendX, legendYPos);
+                    legendYPos += 5;
                     currentLine = text;
                 } else {
                     currentLine += text;
@@ -910,7 +918,7 @@
             });
             if (currentLine) {
                 doc.setFont("helvetica", "normal");
-                doc.text(currentLine, legendX, legendY);
+                doc.text(currentLine, legendX, legendYPos);
             }
 
             return doc;
@@ -947,31 +955,27 @@
             const tableHead = [['TIME', 'MON', 'TUE', 'WED', 'THU', 'FRI']];
 
             doc.autoTable({
-                head: [[{ content: streamName, colSpan: 6, styles: { halign: 'center', fillColor: [37, 99, 235], textColor: 255 } }]],
-                body: [tableHead, ...tableBody], // Inject Header row into body structure for custom styling or keep separate?
-                // Actually, autoTable head expects array of arrays. Let's keep it simple.
                 startY: y,
                 startX: x,
-                theme: 'grid',
-                styles: { fontSize: 7, cellPadding: 1, fontStyle: 'normal' },
-                headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
-                columnStyles: {
-                    0: { cellWidth: 18, fontStyle: 'bold' }, // Time
-                },
-                // We want the stream name as a header, but we also want Day headers.
-                // Trick: Put Stream Name in a separate header row, then Day headers.
                 head: [
                     [{ content: streamName, colSpan: 6, styles: { halign: 'center', fillColor: [200, 200, 200], textColor: 0, fontStyle: 'bold' } }],
                     ['TIME', 'MON', 'TUE', 'WED', 'THU', 'FRI']
                 ],
+                body: tableBody,
+                theme: 'grid',
+                styles: { fontSize: 6.5, cellPadding: 1, fontStyle: 'normal' }, // Smaller font 6.5pt
+                headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                columnStyles: {
+                    0: { cellWidth: 18, fontStyle: 'bold' }, // Time
+                },
                 didParseCell: function(data) {
                     // Style Breaks specifically
-                    if (data.section === 'body' && data.row.index > 0) { // Skip header rows
+                    if (data.section === 'body' && data.row.index > 0) {
                         const rawContent = data.cell.raw;
-                        if (rawContent === "BREAK" || rawContent === "RECESS" || rawContent === "LUNCH") {
-                            data.cell.styles.fillColor = [240, 240, 240];
+                        if (rawContent === "SHORT BREAK" || rawContent === "LONG BREAK" || rawContent === "LUNCH") {
+                            data.cell.styles.fillColor = [230, 230, 230];
                             data.cell.styles.fontStyle = 'bold';
-                            data.cell.styles.textColor = [80, 80, 80];
+                            data.cell.styles.textColor = [50, 50, 50];
                         }
                     }
                 }
@@ -979,7 +983,6 @@
 
             return doc.lastAutoTable.finalY;
         }
-
 
         function downloadPDF() {
             const doc = generatePDFDoc();
