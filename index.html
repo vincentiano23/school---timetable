@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kenya School Timetable Pro</title>
+    <!-- PDF Generation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -431,10 +433,11 @@
         <!-- PRINT VIEW -->
         <section id="print-view" class="view-section">
             <div style="background: white; padding: 10px; margin-bottom: 10px; text-align: right; border-bottom: 1px solid #ddd;" class="no-print">
-                <div class="print-actions">
+                <div class="print-actions" style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
                     <button class="btn btn-secondary" onclick="showView('editor')">← Back to Editor</button>
-                    <button class="btn btn-secondary" onclick="printTemplate()">📄 Download Empty Template</button>
-                    <button class="btn btn-primary" onclick="window.print()">🖨️ Download PDF</button>
+                    <button id="btnDownloadTemplate" class="btn btn-secondary" onclick="downloadTemplate()">📄 Download Empty Template</button>
+                    <button id="btnDownloadPDF" class="btn btn-primary" onclick="downloadPDF()">💾 Download PDF File</button>
+                    <button class="btn btn-success" onclick="window.print()">🖨️ Print (Hard Copy)</button>
                 </div>
             </div>
             <div id="print-view-container">
@@ -584,7 +587,7 @@
         let tempSlotItems = [];
 
         function init() {
-            const saved = localStorage.getItem('schoolPlanner_v11');
+            const saved = localStorage.getItem('schoolPlanner_v12');
             if (saved) {
                 appState = JSON.parse(saved);
             } else {
@@ -601,7 +604,7 @@
         }
 
         function saveState() {
-            localStorage.setItem('schoolPlanner_v11', JSON.stringify(appState));
+            localStorage.setItem('schoolPlanner_v12', JSON.stringify(appState));
         }
 
         function updateHeaderState() {
@@ -768,7 +771,34 @@
             container.innerHTML = html;
         }
 
-        function printTemplate() {
+        // --- PDF DOWNLOAD LOGIC ---
+        function downloadPDF() {
+            // Ensure the latest data is rendered
+            renderPrintView();
+            const element = document.getElementById('print-paper-content');
+            const btn = document.getElementById('btnDownloadPDF');
+            
+            // UI Feedback
+            const originalText = btn.innerText;
+            btn.innerText = "Generating...";
+            btn.disabled = true;
+
+            const opt = {
+                margin:       0.3, // inches
+                filename:     `Timetable_${appState.schoolName.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
+                pagebreak:    { mode: ['css', 'legacy'] } // Respect CSS page breaks
+            };
+
+            html2pdf().set(opt).from(element).save().then(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        function downloadTemplate() {
             const container = document.getElementById('print-paper-content');
             let html = "";
             html += `<div class="global-header">`;
@@ -802,9 +832,29 @@
                 html += `</tbody></table>`;
             });
             html += `<div class="legend-container"><strong>TEACHER KEY:</strong><br></div>`;
+            
             container.innerHTML = html;
-            setTimeout(() => { window.print(); }, 500);
-            setTimeout(() => { renderPrintView(); }, 2000);
+
+            const btn = document.getElementById('btnDownloadTemplate');
+            const originalText = btn.innerText;
+            btn.innerText = "Generating...";
+            btn.disabled = true;
+
+            const opt = {
+                margin:       0.3,
+                filename:     `Timetable_Template_${appState.schoolName.replace(/\s+/g, '_')}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
+                pagebreak:    { mode: ['css', 'legacy'] }
+            };
+
+            html2pdf().set(opt).from(container).save().then(() => {
+                btn.innerText = originalText;
+                btn.disabled = false;
+                // Revert to normal view after download
+                setTimeout(() => { renderPrintView(); }, 1000); 
+            });
         }
 
         // --- LOGIC ---
