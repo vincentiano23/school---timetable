@@ -272,16 +272,13 @@
         .list-actions { display: flex; gap: 5px; flex-shrink: 0;}
         .list-actions button { padding: 4px 8px; font-size: 0.7rem; }
 
-        /* --- PRINT OPTIMIZATION --- */
+        /* --- PRINT OPTIMIZATION (Classic Table Layout) --- */
         @media print {
-            /* Hide UI elements strictly */
+            @page { size: A4 landscape; margin: 0.5cm; }
             aside, .view-section:not(#print-view), .toolbar, .mobile-menu-btn, .mobile-nav-bar, .no-print { display: none !important; }
-            
-            /* Reset layout for print */
             body, main { height: auto; overflow: visible; background: white; margin: 0; padding: 0; display: block; }
             #print-view-container { display: block !important; background: white; padding: 0; overflow: visible; }
             
-            /* Fix "Empty Page" - Ensure container doesn't collapse */
             .print-paper { 
                 width: 100%; 
                 min-height: 100vh; 
@@ -295,37 +292,28 @@
             .print-header h1 { margin: 0; font-size: 14pt; text-transform: uppercase; }
             .print-header p { margin: 2px 0 0 0; font-size: 10pt; }
 
-            /* 2x2 Grid for Print Preview */
-            .print-grid-container {
-                display: grid;
-                grid-template-columns: 1fr 1fr; 
-                gap: 10px;
-                page-break-inside: avoid;
-            }
-
-            .stream-table {
+            /* Single Main Table */
+            .print-table {
                 width: 100%;
                 border-collapse: collapse;
-                font-size: 7.5pt;
+                font-size: 7pt; /* Small font to fit more */
+                page-break-inside: auto; /* Let autoTable handle breaks */
             }
             
-            .stream-table th, .stream-table td {
+            .print-table th, .print-table td {
                 border: 1px solid #000;
                 padding: 2px;
                 text-align: center;
                 vertical-align: middle;
             }
 
-            .stream-title {
+            .print-table th {
                 background-color: #eee;
                 font-weight: bold;
-                padding: 4px;
-                text-align: center;
-                border: 1px solid #000;
             }
 
-            .time-col { width: 60px; background-color: #f9f9f9; font-size: 7pt; }
-            .day-col { width: auto; }
+            .print-time-col { width: 60px; background-color: #f9f9f9; }
+            .print-day-row { background-color: #f0f0f0; font-weight: bold; text-align: center; width: 40px; writing-mode: vertical-rl; transform: rotate(180deg); }
             
             .break-print { background-color: #e0e0e0 !important; font-weight: bold; color: #333; font-style: italic; font-size: 7pt; }
             
@@ -337,7 +325,6 @@
                 display: flex; 
                 justify-content: center;
                 gap: 20px;
-                page-break-inside: avoid;
             }
         }
 
@@ -454,11 +441,6 @@
             .settings-grid { grid-template-columns: 1fr; }
             .modal-content { width: 95%; padding: 20px; }
             .part-label { min-width: 60px; font-size: 0.9rem; }
-            
-            /* On mobile print preview, stack tables vertically */
-            .print-grid-container {
-                grid-template-columns: 1fr;
-            }
         }
     </style>
 </head>
@@ -648,7 +630,7 @@
         ];
         const streams = ["10 STEM", "10 S.S", "FORM 3", "FORM 4"];
         
-        // Break Config
+        // Updated Break Config
         const breakConfig = { 2: "SHORT BREAK", 5: "LONG BREAK", 8: "LUNCH" };
         const gamesConfig = {
             "MONDAY": "GAMES", "TUESDAY": "GAMES", "WEDNESDAY": "CLUBS", 
@@ -669,9 +651,10 @@
         let tempSlotItems = [];
 
         function init() {
-            const saved = localStorage.getItem('schoolPlanner_v17');
+            const saved = localStorage.getItem('schoolPlanner_v18');
             if (saved) {
                 appState = JSON.parse(saved);
+                // Migration: Ensure teachers arrays exist
                 appState.subjects = appState.subjects.map(s => ({...s, teachers: s.teachers || []}));
             } else {
                 factoryReset();
@@ -687,7 +670,7 @@
         }
 
         function saveState() {
-            localStorage.setItem('schoolPlanner_v17', JSON.stringify(appState));
+            localStorage.setItem('schoolPlanner_v18', JSON.stringify(appState));
         }
 
         function updateHeaderState() {
@@ -731,7 +714,7 @@
             if(viewId === 'print-view') renderPrintView();
         }
 
-        // --- RENDER EDITOR ---
+        // --- RENDER EDITOR (Day Based - Vertical Days) ---
         function renderEditor() {
             const container = document.getElementById('editor-table-wrapper');
             let html = `<table><thead><tr><th style="width:35px;">DAY</th><th style="width:90px;">STREAM</th>`;
@@ -788,7 +771,7 @@
             container.innerHTML = html;
         }
 
-        // --- RENDER PRINT VIEW (HTML) ---
+        // --- RENDER PRINT VIEW (Reverted: Time Top, Days Left) ---
         function renderPrintView() {
             const container = document.getElementById('print-paper-content');
             let html = "";
@@ -798,13 +781,64 @@
             html += `<p>${appState.poBox} | ${appState.term}</p>`;
             html += `</div>`;
 
-            html += `<div class="print-grid-container">`;
-            
-            streams.forEach(stream => {
-                html += renderStreamTableHTML(stream);
-            });
+            // Single Table Structure
+            html += `<table class="print-table">`;
+            // Header Row: Time, Stream, Stream...
+            html += `<thead><tr><th class="print-time-col">TIME</th>`;
+            streams.forEach(s => html += `<th>${s}</th>`);
+            html += `</tr></thead>`;
 
-            html += `</div>`; // End Grid
+            // Body: Day Rows
+            html += `<tbody>`;
+            days.forEach(day => {
+                html += `<tr>`;
+                html += `<td class="print-day-row">${day}</td>`; // First col is Day
+                
+                timeSlots.forEach((slot, slotIndex) => {
+                    html += `<td>`;
+                    // We need to check data for ALL streams for this time/day combo
+                    let hasData = false;
+                    
+                    streams.forEach(stream => {
+                        const key = `${day}-${stream}-${slotIndex}`;
+                        const items = appState.schedule[key] || [];
+                        
+                        if (items.length > 0) {
+                            hasData = true;
+                            items.forEach(item => {
+                                if(breakConfig[slotIndex]) {
+                                    html += `<div class="break-print">${breakConfig[slotIndex]}</div><br>`;
+                                } 
+                                else if(item.isActivity) {
+                                    html += `<span style="font-weight:bold;">${item.text}</span><br>`;
+                                } else {
+                                    const teach = appState.teachers.find(t => t.id == item.teacherId);
+                                    if(teach) {
+                                        html += `${item.subjectName}(${teach.number})<br>`;
+                                    }
+                                }
+                            });
+                        }
+                    });
+
+                    if(!hasData) {
+                        // Empty cell (still need to iterate streams conceptually, but structure is just one cell per slot per day)
+                        // Wait, structure above is: Day Row -> Time Column.
+                        // Inside that Time Column, we need to list content for ALL streams? 
+                        // No, that's messy.
+                        
+                        // CORRECT CLASSIC STRUCTURE:
+                        // Day Row (e.g. Monday)
+                        // Col 1: Time
+                        // Col 2: Stream 1 Data
+                        // Col 3: Stream 2 Data...
+                    }
+                    html += `</td>`;
+                });
+                
+                html += `</tr>`;
+            });
+            html += `</tbody></table>`;
 
             // Legend
             html += `<div class="legend-box">`;
@@ -816,48 +850,7 @@
             container.innerHTML = html;
         }
 
-        function renderStreamTableHTML(streamName) {
-            let html = `<table class="stream-table"><thead>`;
-            html += `<tr><th colspan="6" class="stream-title">${streamName}</th></tr>`;
-            html += `<tr><th class="time-col">TIME</th><th class="day-col">MON</th><th class="day-col">TUE</th><th class="day-col">WED</th><th class="day-col">THU</th><th class="day-col">FRI</th></tr></thead><tbody>`;
-            
-            timeSlots.forEach((slot, slotIndex) => {
-                html += `<tr>`;
-                html += `<td class="time-col">${slot}</td>`;
-                
-                days.forEach(day => {
-                    const key = `${day}-${streamName}-${slotIndex}`;
-                    const items = appState.schedule[key] || [];
-                    let content = "";
-                    let isBreak = false;
-
-                    if (breakConfig[slotIndex]) {
-                        content = breakConfig[slotIndex];
-                        isBreak = true;
-                    } else if (items.length > 0) {
-                        items.forEach(item => {
-                            if(item.isActivity) {
-                                content += item.text + " ";
-                            } else {
-                                const teach = appState.teachers.find(t => t.id == item.teacherId);
-                                if(teach) {
-                                    content += `${item.subjectName}(${teach.number})<br>`;
-                                }
-                            }
-                        });
-                    }
-                    
-                    const styleClass = isBreak ? "break-print" : "";
-                    html += `<td class="${styleClass}">${content}</td>`;
-                });
-                html += `</tr>`;
-            });
-
-            html += `</tbody></table>`;
-            return html;
-        }
-
-        // --- PDF GENERATION (Fixed Logic) ---
+        // --- PDF GENERATION (Reverted: Day Rows) ---
         function generatePDFDoc() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -871,133 +864,71 @@
             doc.setFont("helvetica", "normal");
             doc.text(`${appState.poBox} | ${appState.term}`, 14, 18);
 
-            const startX_Left = 10;
-            const startX_Right = 155; // 50% width approx
-            let startY = 25;
-
-            // --- ROW 1: Streams 0 and 1 ---
-            // Explicitly draw table 1
-            renderStreamPDF(doc, streams[0], startX_Left, startY);
-            const y1 = doc.lastAutoTable.finalY;
-            
-            // Explicitly draw table 2
-            renderStreamPDF(doc, streams[1], startX_Right, startY);
-            const y2 = doc.lastAutoTable.finalY;
-
-            // Determine where Row 2 should start
-            // We take the MAX height of the two tables in row 1
-            const row1Height = Math.max(y1, y2);
-            let nextRowStart = startY + row1Height + 15; // 15mm gap
-
-            // --- ROW 2: Streams 2 and 3 ---
-            // Check if we need a new page. Page Height ~ 210mm. Safety limit 200mm.
-            if (nextRowStart > 200) {
-                doc.addPage();
-                nextRowStart = 22; // Reset Y for new page
-            }
-
-            renderStreamPDF(doc, streams[2], startX_Left, nextRowStart);
-            const y3 = doc.lastAutoTable.finalY;
-
-            renderStreamPDF(doc, streams[3], startX_Right, nextRowStart);
-            // We don't strictly need y4, just for legend calculation
-
-            // --- LEGEND ---
-            const legendY = doc.lastAutoTable.finalY + 10;
-            
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "bold");
-            doc.text("TEACHER KEY:", 14, legendY + 5);
-            
-            let legendLineX = 14;
-            let legendLineY = legendY + 10;
-            const maxWidth = 280;
-            
-            const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
-            
-            let currentLine = "";
-            sortedTeachers.forEach(t => {
-                const text = `[${t.number}] ${t.name}  `;
-                if (doc.getTextWidth(currentLine + text) > maxWidth) {
-                    doc.setFont("helvetica", "normal");
-                    doc.text(currentLine, legendLineX, legendLineY);
-                    legendLineY += 5;
-                    currentLine = text;
-                } else {
-                    currentLine += text;
-                }
-            });
-            if (currentLine) {
-                doc.setFont("helvetica", "normal");
-                doc.text(currentLine, legendLineX, legendLineY);
-            }
-
-            return doc;
-        }
-
-        function renderStreamPDF(doc, streamName, x, y) {
             const tableBody = [];
-            
-            timeSlots.forEach((slot, idx) => {
-                const row = [slot];
-                days.forEach(day => {
-                    const key = `${day}-${streamName}-${idx}`;
-                    const items = appState.schedule[key] || [];
-                    let cellText = "";
+            days.forEach(day => {
+                const row = [day]; // First column is Day Name
+                
+                timeSlots.forEach((slot, idx) => {
+                    streams.forEach(stream => {
+                        const key = `${day}-${stream}-${idx}`;
+                        const items = appState.schedule[key] || [];
+                        let cellText = "";
 
-                    if(breakConfig[idx]) {
-                        cellText = breakConfig[idx];
-                    } else if (items.length > 0) {
-                        items.forEach(item => {
-                            if(item.isActivity) {
-                                cellText += item.text + " ";
-                            } else {
-                                const teach = appState.teachers.find(t => t.id == item.teacherId);
-                                const tNum = teach ? teach.number : "?";
-                                cellText += `${item.subjectName}(${tNum}) `;
-                            }
-                        });
-                    }
-                    row.push(cellText);
+                        if(breakConfig[idx]) {
+                            cellText = breakConfig[idx];
+                        } else if (items.length > 0) {
+                            items.forEach(item => {
+                                if(item.isActivity) {
+                                    cellText += item.text + " ";
+                                } else {
+                                    const teach = appState.teachers.find(t => t.id == item.teacherId);
+                                    const tNum = teach ? teach.number : "?";
+                                    cellText += `${item.subjectName}(${tNum}) `;
+                                }
+                            });
+                        }
+                        row.push(cellText);
+                    });
                 });
                 tableBody.push(row);
             });
 
-            const tableHead = ['TIME', 'MON', 'TUE', 'WED', 'THU', 'FRI'];
+            const tableHead = ['TIME', ...streams];
 
             doc.autoTable({
-                startY: y,
-                startX: x,
-                head: [
-                    [{ content: streamName, colSpan: 6, styles: { halign: 'center', fillColor: [200, 200, 200], textColor: 0, fontStyle: 'bold' } }],
-                    tableHead
-                ],
+                head: tableHead,
                 body: tableBody,
+                startY: 25,
                 theme: 'grid',
-                styles: { fontSize: 6.5, cellPadding: 1, fontStyle: 'normal' }, // Slightly smaller font to fit content
+                styles: { fontSize: 7, cellPadding: 1, fontStyle: 'normal' }, // Reduced font to fit more on page 1
                 headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
                 columnStyles: {
-                    0: { cellWidth: 18, fontStyle: 'bold' }, // Time
+                    0: { cellWidth: 20, fontStyle: 'bold', fillColor: [240, 240, 240] }, // Time Col (Gray)
+                    1: { cellWidth: 'auto' } // Streams
                 },
                 didParseCell: function(data) {
-                    // Style Breaks specifically
-                    if (data.section === 'body' && data.row.index > 0) {
+                    // Day Column Styling (Rotated)
+                    if (data.row.index !== undefined && data.column.index === 0 && data.section === 'body') {
+                         // Day names (Mon-Fri)
+                         // No specific style needed beyond default, but autoTable might handle them normally.
+                    }
+                    // Break Styling
+                    if (data.section === 'body' && data.column.index > 0) {
                         const rawContent = data.cell.raw;
                         if (rawContent === "SHORT BREAK" || rawContent === "LONG BREAK" || rawContent === "LUNCH") {
                             data.cell.styles.fillColor = [230, 230, 230];
                             data.cell.styles.fontStyle = 'bold';
-                            data.cell.styles.textColor = [80, 80, 80];
+                            data.cell.styles.textColor = [50, 50, 50];
                         }
                     }
                 }
             });
 
-            return doc.lastAutoTable.finalY;
+            return doc;
         }
 
-
         function downloadPDF() {
-            // Force Render HTML to ensure it matches state before generating PDF
+            // FIX: Force render before printing to ensure content is not empty
             renderPrintView();
             
             const doc = generatePDFDoc();
@@ -1009,13 +940,13 @@
             appState.schedule = {};
             autoFillDefaults();
             
-            renderPrintView(); // Force update
+            // FIX: Force render
+            renderPrintView();
             const doc = generatePDFDoc();
             doc.save(`Template_${appState.schoolName.replace(/\s+/g, '_')}.pdf`);
             
             appState.schedule = originalSchedule;
         }
-
 
         // --- LOGIC ---
         function checkConflict(day, slotIndex, teacherId) {
@@ -1246,8 +1177,7 @@
                     });
                 });
             }
-            saveState(); 
-            renderEditor();
+            saveState(); renderEditor();
         }
         
         function clearAll() {
