@@ -4,8 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Kenya School Timetable Pro</title>
-    <!-- PDF Generation Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- PDF Generation Libraries (Text-based, not Image-based) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
     <style>
         :root {
             --primary: #2563eb;
@@ -250,14 +251,16 @@
         .list-item {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             padding: 10px;
             border-bottom: 1px solid #eee;
             background: white;
             transition: background 0.2s;
         }
         .list-item:hover { background: #f8fafc; }
-        .list-actions { display: flex; gap: 5px; }
+        .list-content { flex: 1; }
+        .list-subtext { font-size: 0.75rem; color: #888; margin-top: 4px; }
+        .list-actions { display: flex; gap: 5px; flex-shrink: 0;}
         .list-actions button { padding: 4px 8px; font-size: 0.7rem; }
 
         /* --- PRINT OPTIMIZATION --- */
@@ -329,6 +332,17 @@
 
         .settings-card { background: white; padding: 25px; max-width: 700px; margin: 20px auto; border-radius: var(--radius); box-shadow: var(--shadow-md); border: 1px solid var(--border); }
         .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+        /* Multi-select styling */
+        .multi-select-label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.85rem; }
+        select[multiple] {
+            width: 100%;
+            padding: 5px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            height: 80px;
+        }
 
         /* --- AFTERNOON ACTIVITY SELECTOR STYLES --- */
         #activitySelector {
@@ -459,42 +473,41 @@
                         <h4 style="border-bottom: 1px solid #eee; padding-bottom:5px; margin-bottom:15px; color:var(--text-light);">TEACHERS</h4>
                         
                         <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
-                            <input type="text" id="newTeacherNum" placeholder="Num (e.g. 1)" style="width: 60px;">
-                            <input type="text" id="newTeacher" placeholder="Name (e.g. Mr. Omondi)" style="flex:1;">
+                            <input type="text" id="newTeacherNum" placeholder="Num" style="width: 60px;">
+                            <input type="text" id="newTeacher" placeholder="Name" style="flex:1;">
                             <input type="hidden" id="editTeacherId">
                         </div>
                         
                         <div style="display: flex; gap: 10px;">
-                            <button id="btnAddTeacher" class="btn btn-primary" style="flex:1;" onclick="saveTeacher()">Add Teacher</button>
-                            <button id="btnUpdateTeacher" class="btn btn-success" style="flex:1; display:none;" onclick="saveTeacher()">Update Teacher</button>
+                            <button id="btnAddTeacher" class="btn btn-primary" style="flex:1;" onclick="saveTeacher()">Add</button>
+                            <button id="btnUpdateTeacher" class="btn btn-success" style="flex:1; display:none;" onclick="saveTeacher()">Update</button>
                             <button class="btn btn-secondary" style="width: 30px;" onclick="cancelEditTeacher()">✕</button>
                         </div>
 
                         <ul id="teacherList" style="padding-left: 0; margin-top: 0; max-height: 200px; overflow-y: auto; border:1px solid #eee;"></ul>
-
-                        <div style="margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;">
-                            <label style="font-size: 0.85rem; font-weight: bold; display:block; margin-bottom:5px;">Combo Builder</label>
-                            <div style="display: flex; gap: 5px; margin-bottom: 5px;">
-                                <input type="text" id="comboSubj1" placeholder="Subj 1" style="flex:1; font-size:0.85rem;">
-                                <input type="text" id="comboSubj2" placeholder="Subj 2 (Optional)" style="flex:1; font-size:0.85rem;">
-                            </div>
-                            <button class="btn btn-secondary btn-sm" onclick="createComboSubject()">Create "Subj/Subj"</button>
-                            <p style="font-size:0.7rem; color:#666; margin:5px 0 0 0;">Separate with "/" to enable split-teacher mode.</p>
-                        </div>
                     </div>
 
                     <!-- SUBJECTS SECTION -->
                     <div>
                         <h4 style="border-bottom: 1px solid #eee; padding-bottom:5px; margin-bottom:15px; color:var(--text-light);">SUBJECTS</h4>
                         
-                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 5px;">
                             <input type="text" id="newSubject" placeholder="Name (e.g. PHY/BIO)" style="flex:1;">
                             <input type="hidden" id="editSubjectId">
                         </div>
+
+                        <!-- Teacher Assigner for Subject -->
+                        <div style="margin-bottom: 10px;">
+                            <label class="multi-select-label">Assign Teachers to this Subject:</label>
+                            <select id="subjectTeachers" multiple>
+                                <!-- Populated by JS -->
+                            </select>
+                            <p style="font-size:0.7rem; color:#666; margin:2px 0 0 0;">Hold Ctrl (Cmd) to select multiple</p>
+                        </div>
                         
                         <div style="display: flex; gap: 10px;">
-                            <button id="btnAddSubject" class="btn btn-primary" style="flex:1;" onclick="saveSubject()">Add Subject</button>
-                            <button id="btnUpdateSubject" class="btn btn-success" style="flex:1; display:none;" onclick="saveSubject()">Update Subject</button>
+                            <button id="btnAddSubject" class="btn btn-primary" style="flex:1;" onclick="saveSubject()">Add</button>
+                            <button id="btnUpdateSubject" class="btn btn-success" style="flex:1; display:none;" onclick="saveSubject()">Update</button>
                             <button class="btn btn-secondary" style="width: 30px;" onclick="cancelEditSubject()">✕</button>
                         </div>
 
@@ -587,11 +600,13 @@
         let tempSlotItems = [];
 
         function init() {
-            const saved = localStorage.getItem('schoolPlanner_v12');
+            const saved = localStorage.getItem('schoolPlanner_v13');
             if (saved) {
                 appState = JSON.parse(saved);
+                // Migration: Ensure teachers arrays exist on subjects if upgrading from old version
+                appState.subjects = appState.subjects.map(s => ({...s, teachers: s.teachers || []}));
             } else {
-                factoryReset(); // Load default combinations if fresh
+                factoryReset();
             }
             
             document.getElementById('schoolName').value = appState.schoolName;
@@ -604,7 +619,7 @@
         }
 
         function saveState() {
-            localStorage.setItem('schoolPlanner_v12', JSON.stringify(appState));
+            localStorage.setItem('schoolPlanner_v13', JSON.stringify(appState));
         }
 
         function updateHeaderState() {
@@ -676,12 +691,9 @@
                             let contentHtml = "";
                             
                             items.forEach(item => {
-                                // Handle Activity Items
                                 if(item.isActivity) {
                                     contentHtml += `<div class="stack-item" style="background:#fffbeb; color:#b45309; border-color:#fcd34d; justify-content:center; font-weight:bold;">${item.text}</div>`;
-                                } 
-                                // Handle Normal Items
-                                else {
+                                } else {
                                     const teach = appState.teachers.find(t => t.id == item.teacherId);
                                     if (teach) {
                                         if(checkConflict(day, slotIndex, teach.id)) conflict = true;
@@ -708,7 +720,7 @@
             container.innerHTML = html;
         }
 
-        // --- RENDER PRINT VIEW ---
+        // --- RENDER PRINT VIEW (HTML Preview) ---
         function renderPrintView() {
             const container = document.getElementById('print-paper-content');
             let html = "";
@@ -771,91 +783,147 @@
             container.innerHTML = html;
         }
 
-        // --- PDF DOWNLOAD LOGIC ---
-        function downloadPDF() {
-            // Ensure the latest data is rendered
-            renderPrintView();
-            const element = document.getElementById('print-paper-content');
-            const btn = document.getElementById('btnDownloadPDF');
+        // --- PDF GENERATION (Vector Text - Editable) ---
+        function generatePDFDoc() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
             
-            // UI Feedback
-            const originalText = btn.innerText;
-            btn.innerText = "Generating...";
-            btn.disabled = true;
+            // Global Header
+            doc.setFontSize(18);
+            doc.setFont("helvetica", "bold");
+            doc.text(appState.schoolName.toUpperCase(), 14, 15);
+            
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "normal");
+            doc.text(`${appState.poBox} | ${appState.term}`, 14, 22);
 
-            const opt = {
-                margin:       0.3, // inches
-                filename:     `Timetable_${appState.schoolName.replace(/\s+/g, '_')}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, logging: false },
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
-                pagebreak:    { mode: ['css', 'legacy'] } // Respect CSS page breaks
-            };
+            let startY = 30;
 
-            html2pdf().set(opt).from(element).save().then(() => {
-                btn.innerText = originalText;
-                btn.disabled = false;
+            days.forEach(day => {
+                // Build table data
+                const tableBody = [];
+                
+                streams.forEach(stream => {
+                    const row = [day, stream]; // Start with Day and Stream
+                    // Add time slots
+                    timeSlots.forEach((slot, idx) => {
+                        const key = `${day}-${stream}-${idx}`;
+                        const items = appState.schedule[key] || [];
+                        let cellText = "";
+
+                        if(breakConfig[idx]) {
+                            cellText = breakConfig[idx];
+                        } else if (items.length > 0) {
+                            items.forEach(item => {
+                                if(item.isActivity) {
+                                    cellText += item.text + " ";
+                                } else {
+                                    const teach = appState.teachers.find(t => t.id == item.teacherId);
+                                    const tNum = teach ? teach.number : "?";
+                                    cellText += `${item.subjectName}(${tNum}) `;
+                                }
+                            });
+                        }
+                        row.push(cellText);
+                    });
+                    tableBody.push(row);
+                });
+
+                // Headers for the table
+                const tableHead = [['DAY', 'STREAM', ...timeSlots]];
+
+                // Add table to PDF
+                doc.autoTable({
+                    head: tableHead,
+                    body: tableBody,
+                    startY: startY,
+                    theme: 'grid',
+                    styles: { fontSize: 7, cellPadding: 1.5, fontStyle: 'normal' },
+                    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', halign: 'center' },
+                    columnStyles: {
+                        0: { cellWidth: 8, rowSpan: 4 }, // Day column
+                        1: { cellWidth: 20 }, // Stream column
+                        // Time columns auto-size
+                    },
+                    didParseCell: function(data) {
+                        // Rotate Day cells vertical
+                        if(data.section === 'head' && data.column.index === 0) {
+                            data.cell.styles.halign = 'center';
+                        }
+                    },
+                    willDrawCell: function(data) {
+                        // Fill color for Day cells
+                        if (data.row.index % 4 === 0 && data.column.index === 0) {
+                            doc.setFillColor(37, 99, 235);
+                            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                            doc.setTextColor(255);
+                        } else if (data.column.index === 0) {
+                            // Keep rows merged visually (handled by rowSpan in config usually, but here we use cellHeight logic)
+                            // jsPDF autoTable handles content automatically. We just need to ensure the first cell of the 4-row block has the color.
+                        }
+                    }
+                });
+
+                startY = doc.lastAutoTable.finalY + 10;
+
+                // Page Break check
+                if (startY > 180) {
+                    doc.addPage();
+                    startY = 20;
+                }
             });
+
+            // Legend
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.text("TEACHER KEY:", 14, startY);
+            
+            let legendX = 14;
+            let legendY = startY + 6;
+            const maxWidth = 280;
+            
+            const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+            
+            // Simple word wrap for legend
+            let currentLine = "";
+            sortedTeachers.forEach(t => {
+                const text = `[${t.number}] ${t.name}  `;
+                if (doc.getTextWidth(currentLine + text) > maxWidth) {
+                    doc.setFont("helvetica", "normal");
+                    doc.text(currentLine, legendX, legendY);
+                    legendY += 5;
+                    currentLine = text;
+                } else {
+                    currentLine += text;
+                }
+            });
+            if (currentLine) {
+                doc.setFont("helvetica", "normal");
+                doc.text(currentLine, legendX, legendY);
+            }
+
+            return doc;
+        }
+
+        function downloadPDF() {
+            const doc = generatePDFDoc();
+            doc.save(`Timetable_${appState.schoolName.replace(/\s+/g, '_')}.pdf`);
         }
 
         function downloadTemplate() {
-            const container = document.getElementById('print-paper-content');
-            let html = "";
-            html += `<div class="global-header">`;
-            html += `<h1>${appState.schoolName} | ${appState.term} (TEMPLATE)</h1>`;
-            html += `<p>${appState.poBox}</p>`;
-            html += `</div>`;
-
-            days.forEach(day => {
-                html += `<table class="print-table" style="page-break-inside: avoid;">`;
-                html += `<thead><tr>`;
-                html += `<th style="width:30px;"></th>`;
-                html += `<th style="width:60px;">STREAM</th>`;
-                timeSlots.forEach(t => html += `<th class="print-col-time">${t}</th>`);
-                html += `</tr></thead><tbody>`;
-
-                streams.forEach((stream, streamIndex) => {
-                    html += `<tr>`;
-                    if(streamIndex === 0) {
-                        html += `<td rowspan="${streams.length}" class="print-col-day day-cell">${day}</td>`;
-                    }
-                    html += `<td class="print-col-stream stream-cell">${stream}</td>`;
-
-                    timeSlots.forEach((slot, slotIndex) => {
-                        let content = "";
-                        if (breakConfig[slotIndex]) { content = `<strong>${breakConfig[slotIndex]}</strong>`; }
-                        const colClass = (slotIndex === 12) ? "print-col-activity" : "";
-                        html += `<td class="${colClass}">${content}</td>`;
-                    });
-                    html += `</tr>`;
-                });
-                html += `</tbody></table>`;
-            });
-            html += `<div class="legend-container"><strong>TEACHER KEY:</strong><br></div>`;
+            // Temporarily clear schedule for template generation
+            const originalSchedule = appState.schedule;
+            appState.schedule = {};
+            // Fill only breaks and games
+            autoFillDefaults();
             
-            container.innerHTML = html;
-
-            const btn = document.getElementById('btnDownloadTemplate');
-            const originalText = btn.innerText;
-            btn.innerText = "Generating...";
-            btn.disabled = true;
-
-            const opt = {
-                margin:       0.3,
-                filename:     `Timetable_Template_${appState.schoolName.replace(/\s+/g, '_')}.pdf`,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, logging: false },
-                jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
-                pagebreak:    { mode: ['css', 'legacy'] }
-            };
-
-            html2pdf().set(opt).from(container).save().then(() => {
-                btn.innerText = originalText;
-                btn.disabled = false;
-                // Revert to normal view after download
-                setTimeout(() => { renderPrintView(); }, 1000); 
-            });
+            const doc = generatePDFDoc();
+            doc.save(`Template_${appState.schoolName.replace(/\s+/g, '_')}.pdf`);
+            
+            // Restore schedule
+            appState.schedule = originalSchedule;
         }
+
 
         // --- LOGIC ---
         function checkConflict(day, slotIndex, teacherId) {
@@ -880,7 +948,8 @@
                     });
                 });
             });
-            saveState(); renderEditor();
+            saveState(); 
+            if(document.getElementById('print-view').classList.contains('active')) renderPrintView();
         }
 
         function openModal(day, stream, idx) {
@@ -891,33 +960,24 @@
             const key = `${day}-${stream}-${idx}`;
             tempSlotItems = appState.schedule[key] ? [...appState.schedule[key]] : [];
             
-            // Identify if this is the 4-6 PM slot
             const isAfternoonSlot = (idx === 12);
 
-            // UI Element References
             const normalContainer = document.getElementById('normalInputContainer');
             const activitySelector = document.getElementById('activitySelector');
             const actions = document.getElementById('modalActions');
-            const comboList = document.getElementById('comboList');
             const teacherContainer = document.getElementById('teacherInputsContainer');
             
-            // Toggle UI based on slot type
             if (isAfternoonSlot) {
-                // Show Activity Selector
                 normalContainer.style.display = 'none';
                 teacherContainer.style.display = 'none';
                 activitySelector.style.display = 'block';
-                actions.style.display = 'none'; // Hide standard buttons (save/done)
-                
-                // Update list to show current activity (if any)
+                actions.style.display = 'none'; 
                 renderComboList();
             } else {
-                // Show Standard Inputs
                 normalContainer.style.display = 'block';
                 activitySelector.style.display = 'none';
                 actions.style.display = 'flex';
                 
-                // Reset Standard Inputs
                 document.getElementById('modalSubject').value = "";
                 teacherContainer.style.display = 'none';
                 document.getElementById('teacherRows').innerHTML = "";
@@ -929,16 +989,12 @@
             modal.style.display = 'flex';
         }
 
-        // --- NEW: Handle Activity Selection (4-6 PM) ---
         function selectActivity(type) {
-            // Replace current items with the selected activity
             tempSlotItems = [{
                 isActivity: true,
                 text: type,
-                subjectName: type // For rendering consistency
+                subjectName: type
             }];
-            
-            // Save immediately and close
             saveSlot();
         }
 
@@ -951,7 +1007,7 @@
                 appState.subjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
         }
 
-        // --- KEY FUNCTION: Setup Teacher Inputs based on Combo ---
+        // --- SUBJECT TEACHER LINKING ---
         function setupTeacherInputs() {
             const subjectName = document.getElementById('modalSubject').value;
             const container = document.getElementById('teacherInputsContainer');
@@ -962,67 +1018,45 @@
                 return;
             }
 
-            // Check if subject contains a "/" (Combination)
-            if (subjectName.includes('/')) {
-                container.style.display = 'block';
-                const parts = subjectName.split('/');
-                
-                // Clear previous rows
-                rowsContainer.innerHTML = '';
+            container.style.display = 'block';
+            rowsContainer.innerHTML = '';
 
-                // Create a row for each part
-                parts.forEach(part => {
-                    const cleanPart = part.trim();
-                    const div = document.createElement('div');
-                    div.className = 'part-input-row';
-                    
-                    // Label (Subject Name)
-                    const label = document.createElement('label');
-                    label.className = 'part-label';
-                    label.innerText = cleanPart;
-                    
-                    // Dropdown (Teacher)
-                    const select = document.createElement('select');
-                    select.className = 'part-teacher-select';
-                    
-                    // Re-populate teacher options
-                    const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
-                    select.innerHTML = `<option value="">-- Teacher --</option>` + 
-                        sortedTeachers.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
-                    
-                    div.appendChild(label);
-                    div.appendChild(select);
-                    rowsContainer.appendChild(div);
-                });
-            } else {
-                // Single Subject
-                container.style.display = 'block';
-                rowsContainer.innerHTML = '';
-                
+            // Find subject object to see if it has pre-assigned teachers
+            const subjectObj = appState.subjects.find(s => s.name === subjectName);
+            const assignedTeacherIds = subjectObj ? subjectObj.teachers : [];
+
+            const parts = subjectName.includes('/') ? subjectName.split('/') : [subjectName];
+            
+            parts.forEach((part, index) => {
+                const cleanPart = part.trim();
                 const div = document.createElement('div');
                 div.className = 'part-input-row';
                 
                 const label = document.createElement('label');
                 label.className = 'part-label';
-                label.innerText = subjectName;
+                label.innerText = cleanPart;
                 
                 const select = document.createElement('select');
                 select.className = 'part-teacher-select';
+                
                 const sortedTeachers = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
                 select.innerHTML = `<option value="">-- Teacher --</option>` + 
                     sortedTeachers.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
                 
+                // Pre-fill teacher if available (simple index match for combos)
+                const prefillId = assignedTeacherIds[index] || assignedTeacherIds[0]; 
+                if(prefillId) select.value = prefillId;
+                
                 div.appendChild(label);
                 div.appendChild(select);
                 rowsContainer.appendChild(div);
-            }
+            });
         }
 
         function addToSlot() {
             const subjectName = document.getElementById('modalSubject').value;
             if(!subjectName) return;
 
-            // Iterate over the generated rows
             const rows = document.getElementById('teacherRows').querySelectorAll('.part-input-row');
             
             rows.forEach(row => {
@@ -1031,14 +1065,13 @@
                 
                 if(teacherId) {
                     tempSlotItems.push({ 
-                        subjectName: partName, // Use the specific part (e.g., "PHY")
+                        subjectName: partName,
                         teacherId: parseInt(teacherId),
                         isActivity: false
                     });
                 }
             });
 
-            // Clear inputs after adding
             document.getElementById('modalSubject').value = "";
             document.getElementById('teacherInputsContainer').style.display = 'none';
             document.getElementById('teacherRows').innerHTML = "";
@@ -1058,7 +1091,6 @@
                 return;
             }
             list.innerHTML = tempSlotItems.map((item, index) => {
-                // Display Logic for Activity vs Normal
                 if(item.isActivity) {
                     return `
                     <div class="combo-item" style="background:#fffbeb; color:#b45309;">
@@ -1107,7 +1139,6 @@
                                 for(let k=0; k<count; k++) {
                                     const rSubj = appState.subjects[Math.floor(Math.random() * appState.subjects.length)];
                                     const rTeach = appState.teachers[Math.floor(Math.random() * appState.teachers.length)];
-                                    // For randomizer, just use the full name
                                     items.push({ subjectName: rSubj.name, teacherId: rTeach.id, isActivity: false });
                                 }
                                 appState.schedule[`${day}-${stream}-${idx}`] = items;
@@ -1147,14 +1178,14 @@
                     appState.teachers.push({id: Date.now(), name, number: num || "?"}); 
                 }
                 resetTeacherForm();
-                renderTeacherList(); saveState(); 
+                renderTeacherList(); renderSubjectTeacherOptions(); saveState(); 
             }
         }
 
         function deleteTeacher(id) {
             if(confirm("Delete this teacher?")) {
                 appState.teachers = appState.teachers.filter(t => t.id != id);
-                renderTeacherList(); saveState();
+                renderTeacherList(); renderSubjectTeacherOptions(); saveState();
             }
         }
 
@@ -1194,16 +1225,30 @@
                 </li>`).join('');
         }
 
-        // --- CRUD SUBJECTS ---
+        // --- CRUD SUBJECTS (With Teacher Assignment) ---
+        function renderSubjectTeacherOptions() {
+            const select = document.getElementById('subjectTeachers');
+            const sorted = [...appState.teachers].sort((a,b) => parseInt(a.number) - parseInt(b.number));
+            select.innerHTML = sorted.map(t => `<option value="${t.id}">[${t.number}] ${t.name}</option>`).join('');
+        }
+
         function saveSubject() {
             const name = document.getElementById('newSubject').value;
             const id = document.getElementById('editSubjectId').value;
+            
+            // Get selected teachers from multi-select
+            const selectedOptions = Array.from(document.getElementById('subjectTeachers').selectedOptions);
+            const teacherIds = selectedOptions.map(option => parseInt(option.value));
+
             if(name) { 
                 if(id) {
                     const s = appState.subjects.find(s => s.id == id);
-                    if(s) s.name = name;
+                    if(s) { 
+                        s.name = name; 
+                        s.teachers = teacherIds; 
+                    }
                 } else {
-                    appState.subjects.push({id: Date.now(), name}); 
+                    appState.subjects.push({id: Date.now(), name, teachers: teacherIds}); 
                 }
                 resetSubjectForm();
                 renderSubjectList(); saveState(); 
@@ -1222,6 +1267,13 @@
             if(s) {
                 document.getElementById('newSubject').value = s.name;
                 document.getElementById('editSubjectId').value = s.id;
+                
+                // Set multi-select values
+                const select = document.getElementById('subjectTeachers');
+                Array.from(select.options).forEach(opt => {
+                    opt.selected = s.teachers.includes(parseInt(opt.value));
+                });
+
                 document.getElementById('btnAddSubject').style.display = 'none';
                 document.getElementById('btnUpdateSubject').style.display = 'inline-block';
             }
@@ -1236,30 +1288,36 @@
             document.getElementById('editSubjectId').value = "";
             document.getElementById('btnAddSubject').style.display = 'inline-block';
             document.getElementById('btnUpdateSubject').style.display = 'none';
+            
+            // Clear multi-select
+            const select = document.getElementById('subjectTeachers');
+            Array.from(select.options).forEach(opt => opt.selected = false);
         }
 
         function renderSubjectList() {
             const list = document.getElementById('subjectList');
-            list.innerHTML = appState.subjects.map(s => `
+            list.innerHTML = appState.subjects.map(s => {
+                // Find teacher names
+                const assignedNames = (s.teachers || [])
+                    .map(tid => {
+                        const t = appState.teachers.find(x => x.id == tid);
+                        return t ? `[${t.number}] ${t.name}` : '';
+                    })
+                    .filter(n => n)
+                    .join(', ');
+
+                return `
                 <li class="list-item">
-                    <span>${s.name}</span>
+                    <div class="list-content">
+                        <strong>${s.name}</strong>
+                        ${assignedNames ? `<div class="list-subtext">Teachers: ${assignedNames}</div>` : ''}
+                    </div>
                     <div class="list-actions">
                         <button class="btn btn-secondary btn-sm" onclick="editSubject(${s.id})">Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="deleteSubject(${s.id})">Delete</button>
                     </div>
-                </li>`).join('');
-        }
-
-        function createComboSubject() {
-            const s1 = document.getElementById('comboSubj1').value;
-            const s2 = document.getElementById('comboSubj2').value;
-            if(s1) {
-                const comboName = s2 ? `${s1}/${s2}` : s1;
-                appState.subjects.push({id: Date.now(), name: comboName});
-                document.getElementById('comboSubj1').value = "";
-                document.getElementById('comboSubj2').value = "";
-                renderSubjectList(); saveState();
-            }
+                </li>`;
+            }).join('');
         }
 
         function factoryReset() {
@@ -1281,21 +1339,21 @@
                         {id: 10, name: "Mr. Eng", number: "10"}
                     ],
                     subjects: [
-                        {id: 101, name: "PHY/BIO"},
-                        {id: 102, name: "GEO/HIST"},
-                        {id: 103, name: "AGRIC/COMP/HOMESCI"},
-                        {id: 104, name: "LIT/FASIHI/BS"},
-                        {id: 105, name: "AGRIC/BS/COMP"},
-                        {id: 106, name: "ENG"},
-                        {id: 107, name: "KISW"},
-                        {id: 108, name: "MATH"},
-                        {id: 109, name: "CHEM"}
+                        {id: 101, name: "PHY/BIO", teachers: [1, 2]}, // Example default assignment
+                        {id: 102, name: "GEO/HIST", teachers: [3, 4]},
+                        {id: 103, name: "AGRIC/COMP/HOMESCI", teachers: [5, 6]},
+                        {id: 104, name: "LIT/FASIHI/BS", teachers: [7, 8]},
+                        {id: 105, name: "AGRIC/BS/COMP", teachers: []},
+                        {id: 106, name: "ENG", teachers: [10]},
+                        {id: 107, name: "KISW", teachers: [8]},
+                        {id: 108, name: "MATH", teachers: [9]},
+                        {id: 109, name: "CHEM", teachers: [1]}
                     ],
                     schedule: {}
                 };
                 autoFillDefaults();
                 saveState();
-                init(); // Reload UI
+                init(); 
             }
         }
 
